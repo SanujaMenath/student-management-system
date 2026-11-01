@@ -38,7 +38,7 @@ export async function login(formData: FormData) {
     };
   }
 
-  // Redirect to corresponding role route
+
   switch (actualRole) {
     case 'admin':
       redirect('/admin/dashboard');
@@ -48,4 +48,10 @@ export async function login(formData: FormData) {
     default:
       redirect('/parent/dashboard');
   }
+}
+
+export async function logout() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect('/auth/login');
 }
