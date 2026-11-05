@@ -16,14 +16,12 @@ export async function createClient() {
           try {
             cookieStore.set({ name, value, ...options });
           } catch {
-            // Can be ignored if called from a Server Component
           }
         },
         remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options });
           } catch {
-            // Can be ignored if called from a Server Component
           }
         },
       },
