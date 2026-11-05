@@ -19,7 +19,7 @@ export async function login(formData: FormData) {
     return { error: signInError.message };
   }
 
-  // Fetch verified profile role
+  // fetch verified profile role
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Authentication failed' };
 
@@ -31,7 +31,7 @@ export async function login(formData: FormData) {
 
   const actualRole = profile?.role || 'parent';
 
-  // Optional: Enforce that selected tab matches actual database role
+  // enforce that selected tab matches actual database role
   if (expectedRole && expectedRole !== actualRole) {
     return {
       error: `Access denied. Your account is registered as a ${actualRole}, not an ${expectedRole}.`,
