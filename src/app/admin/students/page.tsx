@@ -1,33 +1,28 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useTransition, useMemo } from "react";
-import AddStudentModal from "@/components/admin/AddStudentModal";
-import Link from "next/link";
+import { useState, useEffect, useMemo } from 'react';
+import AddStudentModal from '@/components/admin/AddStudentModal';
+import Link from 'next/link';
 import {
   Search,
   Filter,
   ChevronDown,
   ArrowRight,
   ShieldCheck,
-  X,
-  UserPlus,
-} from "lucide-react";
+} from 'lucide-react';
 import {
   getStudents,
   getClasses,
-  createStudent,
   StudentRecord,
-} from "@/actions/students";
+} from '@/actions/students';
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<StudentRecord[]>([]);
   const [classes, setClasses] = useState<{ id: number; name: string }[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("All");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPending, startTransition] = useTransition();
-  const [formError, setFormError] = useState<string | null>(null);
 
   // Fetch real Supabase data on mount
   useEffect(() => {
@@ -41,7 +36,7 @@ export default function StudentsPage() {
         setStudents(studentData || []);
         setClasses(classData || []);
       } catch (err) {
-        console.error("Failed to load students data:", err);
+        console.error('Failed to load students data:', err);
       } finally {
         setIsLoading(false);
       }
@@ -53,76 +48,44 @@ export default function StudentsPage() {
     if (!Array.isArray(students)) return [];
 
     return students.filter((s) => {
-      const firstName = s.first_name || "";
-      const lastName = s.last_name || "";
+      const firstName = s.first_name || '';
+      const lastName = s.last_name || '';
       const fullName = `${firstName} ${lastName}`.toLowerCase();
-      const admissionNum = (s.admission_number || "").toLowerCase();
-      const className = (s.classes?.name || "").toLowerCase();
-      const contact = (s.emergency_contact || "").toLowerCase();
+      const admissionNum = (s.admission_number || '').toLowerCase();
+      const className = (s.classes?.name || '').toLowerCase();
+      const contact = (s.emergency_contact || '').toLowerCase();
+      const parentName = (s.parent?.full_name || '').toLowerCase();
       const q = searchQuery.toLowerCase().trim();
 
       const matchesSearch =
-        q === "" ||
+        q === '' ||
         fullName.includes(q) ||
         admissionNum.includes(q) ||
         className.includes(q) ||
-        contact.includes(q);
+        contact.includes(q) ||
+        parentName.includes(q);
 
       const matchesStatus =
-        selectedStatus === "All" || s.status === selectedStatus;
+        selectedStatus === 'All' || s.status === selectedStatus;
 
       return matchesSearch && matchesStatus;
     });
   }, [students, searchQuery, selectedStatus]);
 
-  //  Handle modal submission
-  const handleAddStudent = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setFormError(null);
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-
-    startTransition(async () => {
-      const res = await createStudent(formData);
-      if (res?.error) {
-        setFormError(res.error);
-        return;
-      }
-
-      if (res?.student) {
-        const selectedClassId = formData.get("class_id");
-        const assignedClass = classes.find(
-          (c) => String(c.id) === String(selectedClassId),
-        );
-
-        const newRecord: StudentRecord = {
-          ...res.student,
-          classes: assignedClass ? { name: assignedClass.name } : null,
-          parent: null,
-        };
-
-        setStudents((prev) => [newRecord, ...(prev || [])]);
-        setIsModalOpen(false);
-        form.reset();
-      }
-    });
-  };
-
   return (
     <div className="space-y-6 text-slate-900">
-      {/* Header Greeting & Quick Action */}
-      
-        <div>
-          <p className="text-[11px] font-semibold tracking-wider uppercase text-slate-400">
-            ADMINISTRATOR CONSOLE
-          </p>
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mt-0.5">
-            Good morning, Nadeesha
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Here&apos;s what is happening across Handahamy today.
-          </p>
-        </div>
+      {/* Header Greeting & Context */}
+      <div>
+        <p className="text-[11px] font-semibold tracking-wider uppercase text-slate-400">
+          ADMINISTRATOR CONSOLE
+        </p>
+        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mt-0.5">
+          Good morning, Nadeesha
+        </h2>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Here&apos;s what is happening across Handahamy today.
+        </p>
+      </div>
 
       {/* Page Title & Add Student Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
@@ -131,8 +94,7 @@ export default function StudentsPage() {
             Students
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Manage student profiles, guardians, attendance and learning
-            progress.
+            Manage student profiles, guardians, attendance and learning progress.
           </p>
         </div>
 
@@ -170,7 +132,9 @@ export default function StudentsPage() {
               >
                 <option value="All">All statuses</option>
                 <option value="Active">Active</option>
+                <option value="Needs attention">Needs attention</option>
                 <option value="Inactive">Inactive</option>
+                <option value="Graduated">Graduated</option>
               </select>
               <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
@@ -209,8 +173,7 @@ export default function StudentsPage() {
               ) : filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-10 text-center text-slate-400">
-                    No students currently found. Click &quot;Add student&quot;
-                    to register your first record.
+                    No students currently found. Click &quot;Add student&quot; to register your first record.
                   </td>
                 </tr>
               ) : (
@@ -223,10 +186,10 @@ export default function StudentsPage() {
                       {s.first_name} {s.last_name}
                     </td>
                     <td className="py-4 px-5 text-slate-600">
-                      {s.classes?.name || "Unassigned"}
+                      {s.classes?.name || 'Unassigned'}
                     </td>
                     <td className="py-4 px-5 text-slate-600">
-                      {s.parent?.full_name || "Guardian"}
+                      {s.parent?.full_name || 'Guardian'}
                     </td>
                     <td className="py-4 px-5 text-slate-600 font-medium">
                       {s.emergency_contact}
@@ -234,9 +197,11 @@ export default function StudentsPage() {
                     <td className="py-4 px-5">
                       <span
                         className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                          s.status === "Active"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                            : "bg-slate-100 text-slate-600"
+                          s.status === 'Active'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                            : s.status === 'Needs attention'
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200/80'
+                            : 'bg-slate-100 text-slate-600'
                         }`}
                       >
                         {s.status}
@@ -258,6 +223,7 @@ export default function StudentsPage() {
           </table>
         </div>
 
+        {/* Pagination Footer */}
         <div className="py-3.5 px-5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
           <span>Showing {filteredStudents.length} records</span>
           <div className="flex items-center gap-1">
@@ -290,7 +256,7 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      {/* Audit alert banner */}
+      {/* Audit Alert */}
       <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#EBF3F5]/80 border border-slate-200/60">
         <div className="text-[#0C4A35] shrink-0">
           <ShieldCheck className="w-5 h-5 text-sky-800" />
@@ -305,7 +271,7 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      {/* Add Student Modal */}
+      {/* Modal Component */}
       <AddStudentModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
