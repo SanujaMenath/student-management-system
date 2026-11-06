@@ -39,7 +39,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#F7F9F8]">
+    <div className="min-h-screen text-slate-900 w-full flex flex-col lg:flex-row bg-[#F7F9F8]">
       {/* Left Panel: Deep Green Branding */}
       <div className="relative w-full lg:w-[48%] bg-[#0e3b2e] text-white p-8 lg:p-16 flex flex-col justify-between overflow-hidden">
         {/* Subtle curved background overlay */}
