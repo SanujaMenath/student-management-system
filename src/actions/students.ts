@@ -21,7 +21,7 @@ export interface StudentRecord {
   emergency_contact: string;
   class_id?: number | null;
   parent_id?: string | null;
-  status: 'Active' | 'Inactive' | 'Graduated';
+  status: 'Active' | 'Needs attention' | 'Inactive' | 'Graduated';
   created_at: string;
   classes?: {
     name: string;

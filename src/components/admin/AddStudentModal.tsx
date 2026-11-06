@@ -40,11 +40,13 @@ export default function AddStudentModal({
         const assignedClass = classes.find(
           (c) => String(c.id) === String(selectedClassId)
         );
+        const parentName = (formData.get('parent_name') as string) || null;
+        const emergencyContact = (formData.get('emergency_contact') as string) || null;
 
         onStudentAdded({
           ...res.student,
           classes: assignedClass ? { name: assignedClass.name } : null,
-          parent: null,
+          parent: parentName ? { full_name: parentName, phone: emergencyContact } : null,
         });
 
         onClose();
@@ -81,6 +83,7 @@ export default function AddStudentModal({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5 mt-4">
+          {/* First Name & Last Name */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">
@@ -108,6 +111,69 @@ export default function AddStudentModal({
             </div>
           </div>
 
+          {/* Parent Name & Emergency Contact */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                Parent / Guardian Name *
+              </label>
+              <input
+                type="text"
+                name="parent_name"
+                required
+                placeholder="e.g. Kasun Silva"
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0C4A35]/20 focus:border-[#0C4A35]"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                Emergency Contact No *
+              </label>
+              <input
+                type="text"
+                name="emergency_contact"
+                required
+                placeholder="+94 77 123 4567"
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0C4A35]/20 focus:border-[#0C4A35]"
+              />
+            </div>
+          </div>
+
+          {/* Class & Status */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                Assign Class
+              </label>
+              <select
+                name="class_id"
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0C4A35]/20 focus:border-[#0C4A35]"
+              >
+                <option value="">Select Class</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                Status
+              </label>
+              <select
+                name="status"
+                defaultValue="Active"
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0C4A35]/20 focus:border-[#0C4A35]"
+              >
+                <option value="Active">Active</option>
+                <option value="Needs attention">Needs attention</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Date of Birth & Gender */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">
@@ -135,36 +201,7 @@ export default function AddStudentModal({
             </div>
           </div>
 
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-              Assign Class
-            </label>
-            <select
-              name="class_id"
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0C4A35]/20 focus:border-[#0C4A35]"
-            >
-              <option value="">Select Class</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-              Parent / Emergency Contact *
-            </label>
-            <input
-              type="text"
-              name="emergency_contact"
-              required
-              placeholder="+94 77 123 4567"
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0C4A35]/20 focus:border-[#0C4A35]"
-            />
-          </div>
-
+          {/* Form Actions */}
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
             <button
               type="button"
