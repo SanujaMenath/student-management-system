@@ -6,40 +6,8 @@ import { BriefcaseBusiness, Upload } from 'lucide-react';
 import PublicNavbar from '@/components/shared/PublicNavbar';
 import Footer from '@/components/shared/Footer';
 
-const vacancies = [
-  {
-    id: 1,
-    title: 'Early Childhood Educator',
-    department: 'Education',
-    type: 'Full-time',
-    description:
-      'Bring care, curiosity and professionalism to our growing learning community.',
-    closingDate: '30 April 2025',
-  },
-  {
-    id: 2,
-    title: 'Teaching Assistant',
-    department: 'Education',
-    type: 'Full-time',
-    description:
-      'Bring care, curiosity and professionalism to our growing learning community.',
-    closingDate: '30 April 2025',
-  },
-  {
-    id: 3,
-    title: 'Administrative Assistant',
-    department: 'Administration',
-    type: 'Full-time',
-    description:
-      'Bring care, curiosity and professionalism to our growing learning community.',
-    closingDate: '30 April 2025',
-  },
-];
 
-export default function CareerPage() {
-  const [selectedPosition, setSelectedPosition] = useState(
-    vacancies[0].title
-  );
+export default function CareerPage() { 
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
@@ -63,47 +31,9 @@ export default function CareerPage() {
 
       {/* Career Content */}
       <section className="max-w-6xl mx-auto px-6 py-12 lg:py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        
 
-          {/* Available Vacancies */}
-          <div className="space-y-3">
-            {vacancies.map((job) => (
-              <div
-                key={job.id}
-                className="border border-slate-200 rounded-xl p-5 flex justify-between gap-4 hover:shadow-md transition"
-              >
-                <div className="flex gap-3">
-                  <BriefcaseBusiness className="w-5 h-5 text-[#18765A] shrink-0 mt-1" />
 
-                  <div>
-                    <p className="text-xs text-slate-400 mb-2">
-                      {job.department} · {job.type}
-                    </p>
-
-                    <h2 className="font-semibold text-sm text-slate-900">
-                      {job.title}
-                    </h2>
-
-                    <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                      {job.description}
-                    </p>
-
-                    <p className="text-[11px] text-slate-400 mt-2">
-                      Applications close {job.closingDate}
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedPosition(job.title)}
-                  className="shrink-0 h-fit border border-[#C9DED5] text-[#0C6249] rounded-lg px-4 py-2 text-xs font-semibold hover:bg-[#F0F8F4] transition"
-                >
-                  View role
-                </button>
-              </div>
-            ))}
-          </div>
 
           {/* Application Form */}
           <div className="border border-slate-200 rounded-2xl p-6 shadow-[0_12px_40px_rgba(0,0,0,0.08)]">
@@ -169,15 +99,13 @@ export default function CareerPage() {
                 </label>
 
                 <select
-                  value={selectedPosition}
-                  onChange={(e) => setSelectedPosition(e.target.value)}
                   className="w-full border border-slate-200 rounded-lg px-3 py-3 text-xs outline-none focus:border-[#18765A] bg-white"
                 >
-                  {vacancies.map((job) => (
-                    <option key={job.id} value={job.title}>
-                      {job.title}
-                    </option>
-                  ))}
+                  <option value="">Select a position</option>
+                  <option value="Teaching Assistant">Teaching Assistant</option>
+                  <option value="Early Childhood Educator">Early Childhood Educator</option>
+                  <option value="Assistant Administrative Officer">Assistant Administrative Officer</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
 
@@ -224,7 +152,7 @@ export default function CareerPage() {
               </button>
             </form>
           </div>
-        </div>
+      
       </section>
       <Footer />
     </main>
