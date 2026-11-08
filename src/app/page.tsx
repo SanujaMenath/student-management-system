@@ -1,10 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  ChevronDown,
   ArrowRight,
   User,
   ShieldCheck,
@@ -12,99 +10,13 @@ import {
   Star,
 } from 'lucide-react';
 import ChatWidget from '@/components/chat/ChatWidget';
+import PublicNavbar from '@/components/shared/PublicNavbar';
+import Footer from '@/components/shared/Footer';
 
 export default function HomePage() {
-  const [isExploreOpen, setIsExploreOpen] = useState(false);
-
   return (
     <div className="min-h-screen bg-white text-slate-900 flex flex-col justify-between selection:bg-emerald-100">
-      {/* Top Navigation Bar */}
-      <header className="w-full max-w-7xl mx-auto px-6 lg:px-12 py-5 flex items-center justify-between relative z-30">
-        {/* Brand */}
-        <Link href="/" className="flex flex-col">
-          <span className="text-base font-extrabold tracking-wider uppercase text-slate-900">
-            HANDAHAMY
-          </span>
-          <span className="text-[9px] tracking-widest text-slate-400 uppercase font-semibold">
-            EDUCATIONAL INSTITUTE
-          </span>
-        </Link>
-
-        {/* Center Nav Links */}
-        <nav className="hidden md:flex items-center gap-8 text-xs font-medium text-slate-600">
-          <Link
-            href="/"
-            className="text-emerald-800 font-semibold bg-emerald-50/70 px-3.5 py-1.5 rounded-full"
-          >
-            Home
-          </Link>
-          <Link href="/about" className="hover:text-slate-900 transition">
-            About
-          </Link>
-
-          {/* Explore Dropdown with Hover */}
-          <div
-            className="relative"
-            onMouseEnter={() => setIsExploreOpen(true)}
-            onMouseLeave={() => setIsExploreOpen(false)}
-          >
-            <button
-              type="button"
-              className="flex items-center gap-1 hover:text-slate-900 transition cursor-pointer py-1"
-            >
-              <span>Explore</span>
-              <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-                  isExploreOpen ? 'rotate-180 text-slate-900' : ''
-                }`}
-              />
-            </button>
-
-            {/* Dropdown Menu Card */}
-            {isExploreOpen && (
-              <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 w-36">
-                <div className="bg-white rounded-2xl shadow-[0_10px_35px_-8px_rgba(0,0,0,0.12)] border border-slate-100 py-2 flex flex-col animate-in fade-in zoom-in-95 duration-150">
-                  <Link
-                    href="/programs"
-                    className="px-4 py-2 text-xs text-slate-700 hover:text-[#0C4A35] hover:bg-slate-50 font-medium transition"
-                  >
-                    Programs
-                  </Link>
-                  <Link
-                    href="/events"
-                    className="px-4 py-2 text-xs text-slate-700 hover:text-[#0C4A35] hover:bg-slate-50 font-medium transition"
-                  >
-                    Events
-                  </Link>
-                  <Link
-                    href="/gallery"
-                    className="px-4 py-2 text-xs text-slate-700 hover:text-[#0C4A35] hover:bg-slate-50 font-medium transition"
-                  >
-                    Gallery
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <Link href="/admissions" className="hover:text-slate-900 transition">
-            Admissions
-          </Link>
-          <Link href="/payments" className="hover:text-slate-900 transition">
-            Payments
-          </Link>
-        </nav>
-
-        {/* Right CTA */}
-        <div>
-          <Link
-            href="/auth/login"
-            className="inline-flex items-center justify-center px-5 py-2 text-xs font-semibold rounded-xl bg-[#0C4A35] text-white hover:bg-[#072B20] transition shadow-sm"
-          >
-            Login
-          </Link>
-        </div>
-      </header>
+      <PublicNavbar />
 
       {/* Hero Section */}
       <section className="w-full max-w-7xl mx-auto px-6 lg:px-12 pt-8 pb-16 lg:pt-16 lg:pb-24 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
@@ -219,7 +131,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
+      <Footer />
       {/* Floating AI RAG Assistant Widget */}
       <ChatWidget />
     </div>
