@@ -1,48 +1,71 @@
-'use client';
+"use client";
 
-import { useState, useTransition } from 'react';
-import Link from 'next/link';
-import { Lock, ShieldCheck, ArrowLeft, HelpCircle } from 'lucide-react';
-import { login } from '@/actions/auth';
+import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
+import {
+  Lock,
+  ShieldCheck,
+  ArrowLeft,
+  HelpCircle,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import { login } from "@/actions/auth";
 
-type Role = 'Admin' | 'Staff' | 'Parent';
+type Role = "Admin" | "Staff" | "Parent";
 
 export default function LoginPage() {
-  const [selectedRole, setSelectedRole] = useState<Role>('Parent');
+  const [selectedRole, setSelectedRole] = useState<Role>("Parent");
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [savedEmail, setSavedEmail] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    const storedEmail = localStorage.getItem("handahamy_remember_email");
+    if (storedEmail) {
+      setSavedEmail(storedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMsg(null);
     const formData = new FormData(e.currentTarget);
-    formData.append('expectedRole', selectedRole.toLowerCase());
+    formData.append("expectedRole", selectedRole.toLowerCase());
+
+    const email = formData.get("email") as string;
+    const isRememberChecked = formData.get("rememberMe") === "on";
+
+    if (isRememberChecked) {
+      localStorage.setItem("handahamy_remember_email", email);
+    } else {
+      localStorage.removeItem("handahamy_remember_email");
+    }
 
     startTransition(async () => {
       const res = await login(formData);
-      if (res?.error) {
-        setErrorMsg(res.error);
-      }
+      if (res?.error) setErrorMsg(res.error);
     });
   };
 
   const getPlaceholderEmail = () => {
     switch (selectedRole) {
-      case 'Admin':
-        return 'admin@handahamy.edu.lk';
-      case 'Staff':
-        return 'staff@handahamy.edu.lk';
-      case 'Parent':
+      case "Admin":
+        return "admin@handahamy.edu.lk";
+      case "Staff":
+        return "staff@handahamy.edu.lk";
+      case "Parent":
       default:
-        return 'parent@handahamy.edu.lk';
+        return "parent@handahamy.edu.lk";
     }
   };
 
   return (
     <div className="min-h-screen text-slate-900 w-full flex flex-col lg:flex-row bg-[#F7F9F8]">
-      {/* Left Panel: Deep Green Branding */}
       <div className="relative w-full lg:w-[48%] bg-[#0e3b2e] text-white p-8 lg:p-16 flex flex-col justify-between overflow-hidden">
-        {/* Subtle curved background overlay */}
         <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full border-[40px] border-white/[0.03] pointer-events-none" />
         <div className="absolute -bottom-48 -right-48 w-[500px] h-[500px] rounded-full border-[50px] border-white/[0.02] pointer-events-none" />
 
@@ -65,8 +88,8 @@ export default function LoginPage() {
             Connected care for every child&apos;s journey.
           </h2>
           <p className="text-sm lg:text-base text-emerald-100/80 leading-relaxed font-light">
-            One secure place for families, educators and administrators to learn,
-            communicate and grow together.
+            One secure place for families, educators and administrators to
+            learn, communicate and grow together.
           </p>
         </div>
 
@@ -107,15 +130,15 @@ export default function LoginPage() {
 
           {/* Role Switcher Tabs */}
           <div className="flex bg-[#F2F5F3] p-1.5 rounded-2xl mb-6">
-            {(['Admin', 'Staff', 'Parent'] as Role[]).map((role) => (
+            {(["Admin", "Staff", "Parent"] as Role[]).map((role) => (
               <button
                 key={role}
                 type="button"
                 onClick={() => setSelectedRole(role)}
                 className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-all duration-150 ${
                   selectedRole === role
-                    ? 'bg-white text-[#14533e] shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? "bg-white text-[#14533e] shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 {role}
@@ -138,6 +161,8 @@ export default function LoginPage() {
               <input
                 type="email"
                 name="email"
+                defaultValue={savedEmail}
+                key={savedEmail}
                 required
                 placeholder={getPlaceholderEmail()}
                 className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#14533e] focus:border-transparent transition"
@@ -148,13 +173,27 @@ export default function LoginPage() {
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Password
               </label>
-              <input
-                type="password"
-                name="password"
-                required
-                placeholder="Enter your password"
-                className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#14533e] focus:border-transparent transition"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  required
+                  placeholder="Enter your password"
+                  className="w-full pl-4 pr-11 py-3 text-sm rounded-xl border border-slate-200 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#14533e] focus:border-transparent transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition p-1"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between pt-1">
@@ -162,10 +201,13 @@ export default function LoginPage() {
                 <input
                   type="checkbox"
                   name="rememberMe"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   className="w-4 h-4 rounded border-slate-300 text-[#14533e] focus:ring-[#14533e]"
                 />
                 <span className="text-xs text-slate-600">Remember me</span>
               </label>
+
               <Link
                 href="/auth/forgot-password"
                 className="text-xs font-medium text-[#14533e] hover:underline"
@@ -180,7 +222,7 @@ export default function LoginPage() {
               className="w-full mt-2 py-3 px-4 rounded-xl bg-[#14533e] hover:bg-[#0e3b2e] text-white text-sm font-semibold shadow-sm transition disabled:opacity-60"
             >
               {isPending
-                ? 'Authenticating...'
+                ? "Authenticating..."
                 : `Sign in as ${selectedRole.toLowerCase()}`}
             </button>
           </form>
