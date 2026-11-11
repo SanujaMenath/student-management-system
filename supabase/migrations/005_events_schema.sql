@@ -1,4 +1,7 @@
--- 1. Create Enum for Event Statuses
+-- Drop the old conflicting events table
+DROP TABLE IF EXISTS public.events CASCADE;
+
+-- Create Enum for Event Statuses if not already present
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'event_status') THEN
@@ -11,12 +14,12 @@ BEGIN
   END IF;
 END$$;
 
--- 2. Create Events Table
-CREATE TABLE IF NOT EXISTS public.events (
-  id TEXT PRIMARY KEY, -- e.g. EVT-032
+-- Create Events Table with the full schema
+CREATE TABLE public.events (
+  id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   event_date DATE NOT NULL,
-  event_time TEXT NOT NULL, -- e.g. '9:00 AM'
+  event_time TEXT NOT NULL DEFAULT '9:00 AM',
   location TEXT NOT NULL,
   status public.event_status NOT NULL DEFAULT 'Draft',
   description TEXT,
@@ -24,10 +27,10 @@ CREATE TABLE IF NOT EXISTS public.events (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Enable Row Level Security (RLS)
+-- Enable Row Level Security
 ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 
--- 4. RLS Policies
+-- Set RLS Policies
 DROP POLICY IF EXISTS "Authenticated users can view events" ON public.events;
 CREATE POLICY "Authenticated users can view events"
   ON public.events FOR SELECT
@@ -45,7 +48,7 @@ CREATE POLICY "Admins can modify events"
     )
   );
 
--- 5. Seed Initial Data (Matching Figma UI)
+-- Insert Seed Data
 INSERT INTO public.events (id, title, event_date, event_time, location, status)
 VALUES
   ('EVT-032', 'Little Artists'' Day', '2025-03-22', '9:00 AM', 'Activity hall', 'Parents notified'),
