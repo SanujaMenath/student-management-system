@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { DoorOpen, GraduationCap, Plus, Search, UserRound, Users, X, Clock } from 'lucide-react';
+import { createClass, getClassOverview, getTeacherOptions, updateClass } from '@/actions/classes';
 
 interface ClassItem {
   id: number;
@@ -9,23 +10,48 @@ interface ClassItem {
   ageGroup: string;
   room: string;
   teacher: string;
+  teacherId: string | null;
   enrolled: number;
   capacity: number;
   schedule: string;
   color: string;
 }
 
-const initialClasses: ClassItem[] = [
-  { id: 1, name: 'Bright Beginners', ageGroup: '3 – 4 years', room: 'Room 01', teacher: 'Ms. Nimali Perera', enrolled: 18, capacity: 20, schedule: '8:00 AM – 12:00 PM', color: 'bg-[#0C4A35]' },
-  { id: 2, name: 'Little Explorers', ageGroup: '4 – 5 years', room: 'Room 02', teacher: 'Ms. Kavindi Silva', enrolled: 15, capacity: 20, schedule: '8:00 AM – 12:30 PM', color: 'bg-[#D28A20]' },
-  { id: 3, name: 'Curious Minds', ageGroup: '5 – 6 years', room: 'Room 03', teacher: 'Mr. Dilshan Fernando', enrolled: 20, capacity: 20, schedule: '8:00 AM – 1:00 PM', color: 'bg-[#4E7D9A]' },
-  { id: 4, name: 'Rising Stars', ageGroup: '6 – 7 years', room: 'Room 04', teacher: 'Ms. Sanduni Jayawardena', enrolled: 9, capacity: 18, schedule: '8:00 AM – 1:30 PM', color: 'bg-[#7D4E9A]' },
-];
+const palette = ['bg-[#0C4A35]', 'bg-[#D28A20]', 'bg-[#4E7D9A]', 'bg-[#7D4E9A]', 'bg-[#A03C3C]'];
 
 export default function AdminClassesPage() {
-  const [classes, setClasses] = useState<ClassItem[]>(initialClasses);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [teachers, setTeachers] = useState<{ id: string; full_name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<ClassItem | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const load = async () => {
+    const rows = await getClassOverview();
+    setClasses(
+      rows.map((c, i) => ({
+        id: c.id,
+        name: c.name,
+        ageGroup: c.age_group ?? '—',
+        room: c.room_number ?? '—',
+        teacher: c.teacher?.full_name ?? 'Unassigned',
+        teacherId: c.teacher_id,
+        enrolled: c.students?.[0]?.count ?? 0,
+        capacity: c.capacity,
+        schedule: c.schedule ?? '—',
+        color: palette[i % palette.length],
+      }))
+    );
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+    getTeacherOptions().then(setTeachers);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -41,25 +67,31 @@ export default function AdminClassesPage() {
   const totalEnrolled = classes.reduce((s, c) => s + c.enrolled, 0);
   const totalCapacity = classes.reduce((s, c) => s + c.capacity, 0);
 
-  const handleAdd = (e: React.FormEvent<HTMLFormElement>) => {
+  const openCreate = () => {
+    setEditing(null);
+    setFormError(null);
+    setShowModal(true);
+  };
+
+  const openEdit = (c: ClassItem) => {
+    setEditing(c);
+    setFormError(null);
+    setShowModal(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setFormError(null);
     const fd = new FormData(e.currentTarget);
-    const palette = ['bg-[#0C4A35]', 'bg-[#D28A20]', 'bg-[#4E7D9A]', 'bg-[#7D4E9A]', 'bg-[#A03C3C]'];
-    setClasses((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        name: String(fd.get('name')),
-        ageGroup: String(fd.get('ageGroup')),
-        room: String(fd.get('room')),
-        teacher: String(fd.get('teacher')),
-        enrolled: 0,
-        capacity: Number(fd.get('capacity')) || 20,
-        schedule: String(fd.get('schedule')) || '8:00 AM – 12:00 PM',
-        color: palette[prev.length % palette.length],
-      },
-    ]);
-    setShowModal(false);
+    startTransition(async () => {
+      const res = editing ? await updateClass(editing.id, fd) : await createClass(fd);
+      if (res?.error) {
+        setFormError(res.error);
+        return;
+      }
+      setShowModal(false);
+      await load();
+    });
   };
 
   return (
@@ -72,7 +104,7 @@ export default function AdminClassesPage() {
         </div>
         <button
           type="button"
-          onClick={() => setShowModal(true)}
+          onClick={openCreate}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#14533E] px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0e3b2e]"
         >
           <Plus className="h-4 w-4" />
@@ -85,7 +117,7 @@ export default function AdminClassesPage() {
         {[
           { label: 'Active classes', value: classes.length, icon: DoorOpen },
           { label: 'Students enrolled', value: totalEnrolled, icon: GraduationCap },
-          { label: 'Seats available', value: totalCapacity - totalEnrolled, icon: Users },
+          { label: 'Seats available', value: Math.max(totalCapacity - totalEnrolled, 0), icon: Users },
         ].map((s) => (
           <div key={s.label} className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.03)]">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E5EEE9] text-[#14533E]">
@@ -112,14 +144,18 @@ export default function AdminClassesPage() {
       </div>
 
       {/* Class cards */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center text-xs text-slate-500">
+          Loading classes...
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center text-xs text-slate-500">
-          No classes match your search.
+          {classes.length === 0 ? 'No classes yet. Click "Add class" to create one.' : 'No classes match your search.'}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((c) => {
-            const pct = Math.min(100, Math.round((c.enrolled / c.capacity) * 100));
+            const pct = c.capacity > 0 ? Math.min(100, Math.round((c.enrolled / c.capacity) * 100)) : 0;
             const full = c.enrolled >= c.capacity;
             return (
               <article
@@ -162,7 +198,11 @@ export default function AdminClassesPage() {
                   <button type="button" className="flex-1 rounded-xl border border-slate-200 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
                     View students
                   </button>
-                  <button type="button" className="flex-1 rounded-xl bg-[#E5EEE9] py-2 text-xs font-semibold text-[#14533E] transition hover:bg-[#d6e5dd]">
+                  <button
+                    type="button"
+                    onClick={() => openEdit(c)}
+                    className="flex-1 rounded-xl bg-[#E5EEE9] py-2 text-xs font-semibold text-[#14533E] transition hover:bg-[#d6e5dd]"
+                  >
                     Edit
                   </button>
                 </div>
@@ -172,23 +212,22 @@ export default function AdminClassesPage() {
         </div>
       )}
 
-      {/* Add class modal */}
+      {/* Add / edit modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl sm:p-8">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-xl sm:p-8">
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-lg font-bold">Add new class</h3>
+              <h3 className="text-lg font-bold">{editing ? 'Edit class' : 'Add new class'}</h3>
               <button type="button" aria-label="Close" onClick={() => setShowModal(false)} className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <form onSubmit={handleAdd} className="space-y-3.5">
+            <form key={editing?.id ?? 'new'} onSubmit={handleSubmit} className="space-y-3.5">
               {[
-                { name: 'name', label: 'Class name', placeholder: 'e.g. Bright Beginners', required: true },
-                { name: 'ageGroup', label: 'Age group', placeholder: 'e.g. 3 – 4 years', required: true },
-                { name: 'teacher', label: 'Class teacher', placeholder: 'e.g. Ms. Nimali Perera', required: true },
-                { name: 'room', label: 'Room', placeholder: 'e.g. Room 05', required: true },
-                { name: 'schedule', label: 'Schedule', placeholder: '8:00 AM – 12:00 PM', required: false },
+                { name: 'name', label: 'Class name', placeholder: 'e.g. Bright Beginners', required: true, value: editing?.name },
+                { name: 'ageGroup', label: 'Age group', placeholder: 'e.g. 3 – 4 years', required: true, value: editing?.ageGroup },
+                { name: 'room', label: 'Room', placeholder: 'e.g. Room 05', required: true, value: editing?.room },
+                { name: 'schedule', label: 'Schedule', placeholder: '8:00 AM – 12:00 PM', required: false, value: editing?.schedule },
               ].map((f) => (
                 <div key={f.name}>
                   <label className="mb-1.5 block text-xs font-semibold text-slate-700">{f.label}</label>
@@ -196,27 +235,52 @@ export default function AdminClassesPage() {
                     name={f.name}
                     required={f.required}
                     placeholder={f.placeholder}
+                    defaultValue={f.value && f.value !== '—' ? f.value : ''}
                     className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#14533E]"
                   />
                 </div>
               ))}
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">Class teacher</label>
+                <select
+                  name="teacherId"
+                  defaultValue={editing?.teacherId ?? ''}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#14533E]"
+                >
+                  <option value="">Unassigned</option>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-slate-700">Capacity</label>
                 <input
                   type="number"
                   name="capacity"
                   min={1}
-                  defaultValue={20}
+                  defaultValue={editing?.capacity ?? 20}
                   required
                   className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#14533E]"
                 />
               </div>
+
+              {formError && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600">{formError}</p>}
+
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                   Cancel
                 </button>
-                <button type="submit" className="flex-1 rounded-xl bg-[#14533E] py-2.5 text-xs font-semibold text-white hover:bg-[#0e3b2e]">
-                  Save class
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="flex-1 rounded-xl bg-[#14533E] py-2.5 text-xs font-semibold text-white hover:bg-[#0e3b2e] disabled:opacity-60"
+                >
+                  {isPending ? 'Saving...' : editing ? 'Save changes' : 'Save class'}
                 </button>
               </div>
             </form>
