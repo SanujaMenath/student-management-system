@@ -25,6 +25,7 @@ const navItems = [
   { label: 'Fees & payments', href: '/parent/fees', icon: CircleDollarSign },
   { label: 'Messages', href: '/parent/messages', icon: MessageSquare },
   { label: 'Events', href: '/parent/events', icon: CalendarDays },
+  { label: 'Announcements', href: '/parent/announcements', icon: Bell },
   { label: 'Child profile', href: '/parent/child-profile', icon: UserRound },
 ];
 

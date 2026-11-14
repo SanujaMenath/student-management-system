@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import {
   AlertTriangle,
   CalendarCheck,
@@ -9,26 +10,10 @@ import {
   ShieldPlus,
   UserRound,
 } from 'lucide-react';
+import { getMyChildren } from '@/actions/children';
 
-// Mock data – replace with a server action (e.g. getChildProfile) later
-const child = {
-  firstName: 'Amaya',
-  lastName: 'Wijesinghe',
-  admissionNumber: 'HDH-2026-4821',
-  dateOfBirth: '2022-03-14',
-  age: '4 years 7 months',
-  gender: 'Female',
-  className: 'Bright Beginners',
-  classTeacher: 'Ms. Nimali Perera',
-  room: 'Room 01',
-  status: 'Active',
-  bloodGroup: 'O+',
-  allergies: 'Peanuts, dust',
-  medicalNotes: 'Carries no regular medication.',
-  emergencyContact: '+94 77 123 4567',
-  guardian: { name: 'Sanjaya Wijesinghe', relation: 'Father', phone: '+94 71 987 6543', email: 'parent@handahamy.edu.lk' },
-  attendance: { present: 42, absent: 3, rate: 93 },
-};
+// Mock data: there are no attendance or progress tables yet
+const attendance = { present: 42, absent: 3, rate: 93 };
 
 const progress = [
   { subject: 'English', level: 'Developing well', score: 78, color: 'bg-[#0C4A35]' },
@@ -37,6 +22,14 @@ const progress = [
   { subject: 'General Knowledge', level: 'Good', score: 82, color: 'bg-[#A03C3C]' },
   { subject: 'Art and Craft', level: 'Excellent', score: 95, color: 'bg-[#7D4E9A]' },
 ];
+
+function calcAge(dob: string) {
+  const b = new Date(dob);
+  const now = new Date();
+  let months = (now.getFullYear() - b.getFullYear()) * 12 + (now.getMonth() - b.getMonth());
+  if (now.getDate() < b.getDate()) months -= 1;
+  return `${Math.floor(months / 12)} years ${months % 12} months`;
+}
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -61,8 +54,51 @@ function Card({ title, icon: Icon, children }: { title: string; icon: React.Elem
   );
 }
 
-export default function ChildProfilePage() {
-  const initials = `${child.firstName[0]}${child.lastName[0]}`;
+export default async function ChildProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ child?: string }>;
+}) {
+  const { child: childId } = await searchParams;
+  const children = await getMyChildren();
+
+  if (children.length === 0) {
+    return (
+      <div className="space-y-7 text-slate-900">
+        <div>
+          <h2 className="text-3xl font-extrabold tracking-tight">Child profile</h2>
+        </div>
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center text-xs text-slate-500">
+          No child is linked to your account yet. Please contact the administration desk.
+        </div>
+      </div>
+    );
+  }
+
+  const row = children.find((c) => c.id === childId) ?? children[0];
+
+  const child = {
+    firstName: row.first_name,
+    lastName: row.last_name,
+    admissionNumber: row.admission_number,
+    dateOfBirth: row.date_of_birth,
+    age: calcAge(row.date_of_birth),
+    gender: row.gender,
+    className: row.classes?.name ?? 'Not assigned',
+    classTeacher: row.classes?.teacher?.full_name ?? 'Not assigned',
+    room: row.classes?.room_number ?? '—',
+    status: row.status,
+    bloodGroup: row.blood_group ?? 'Not provided',
+    allergies: row.allergies ?? '',
+    emergencyContact: row.emergency_contact,
+    guardian: {
+      name: row.parent?.full_name ?? '—',
+      phone: row.parent?.phone ?? '—',
+      email: row.parent?.email ?? '—',
+    },
+  };
+
+  const initials = `${child.firstName[0] ?? ''}${child.lastName[0] ?? ''}`;
   const formattedDob = new Date(child.dateOfBirth).toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'long',
@@ -76,6 +112,23 @@ export default function ChildProfilePage() {
         <h2 className="text-3xl font-extrabold tracking-tight">Child profile</h2>
         <p className="mt-1 text-xs text-slate-500">View your child&apos;s details, health information and progress.</p>
       </div>
+
+      {/* Child switcher (only when a parent has more than one child) */}
+      {children.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {children.map((c) => (
+            <Link
+              key={c.id}
+              href={`/parent/child-profile?child=${c.id}`}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                c.id === row.id ? 'bg-[#14533E] text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {c.first_name}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Profile header */}
       <section className="flex flex-col gap-5 rounded-3xl bg-[#0e3b2e] p-6 text-white sm:flex-row sm:items-center sm:p-8">
@@ -134,17 +187,16 @@ export default function ChildProfilePage() {
         </Card>
 
         <Card title="Health information" icon={ShieldPlus}>
-          <div className="mb-1 flex items-center gap-2 text-xs">
+          <div className="mb-1 flex items-center gap-2 border-b border-slate-50 pb-2.5 text-xs">
             <Droplet className="h-3.5 w-3.5 text-red-500" />
             <span className="text-slate-500">Blood group</span>
             <span className="ml-auto font-semibold text-slate-900">{child.bloodGroup}</span>
           </div>
-          <InfoRow label="Allergies" value={child.allergies} />
-          <InfoRow label="Medical notes" value={child.medicalNotes} />
+          <InfoRow label="Allergies" value={child.allergies || 'None recorded'} />
         </Card>
 
         <Card title="Guardian & emergency contact" icon={Phone}>
-          <InfoRow label="Guardian" value={`${child.guardian.name} (${child.guardian.relation})`} />
+          <InfoRow label="Guardian" value={child.guardian.name} />
           <div className="flex items-center justify-between gap-4 border-b border-slate-50 py-2.5 text-xs">
             <span className="flex items-center gap-1.5 text-slate-500"><Phone className="h-3.5 w-3.5" />Phone</span>
             <span className="font-semibold">{child.guardian.phone}</span>
@@ -157,20 +209,20 @@ export default function ChildProfilePage() {
         </Card>
       </div>
 
-      {/* Attendance + progress */}
+      {/* Attendance + progress (mock data for now) */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card title="Attendance this term" icon={CalendarCheck}>
-          <div className="text-4xl font-extrabold text-[#14533E]">{child.attendance.rate}%</div>
+          <div className="text-4xl font-extrabold text-[#14533E]">{attendance.rate}%</div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-            <div className="h-full rounded-full bg-[#14533E]" style={{ width: `${child.attendance.rate}%` }} />
+            <div className="h-full rounded-full bg-[#14533E]" style={{ width: `${attendance.rate}%` }} />
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 text-center text-xs">
             <div className="rounded-xl bg-[#E5EEE9] p-3">
-              <div className="text-lg font-bold text-[#14533E]">{child.attendance.present}</div>
+              <div className="text-lg font-bold text-[#14533E]">{attendance.present}</div>
               <div className="text-slate-500">Days present</div>
             </div>
             <div className="rounded-xl bg-red-50 p-3">
-              <div className="text-lg font-bold text-red-600">{child.attendance.absent}</div>
+              <div className="text-lg font-bold text-red-600">{attendance.absent}</div>
               <div className="text-slate-500">Days absent</div>
             </div>
           </div>

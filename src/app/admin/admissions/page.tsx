@@ -1,29 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { CalendarClock, CheckCircle2, ClipboardList, Phone, Mail, Search, XCircle, X } from 'lucide-react';
+import { getAdmissions, updateAdmissionStatus, type AdmissionRecord, type AdmissionStatus } from '@/actions/admissions';
 
-type Status = 'Pending Review' | 'Interview Scheduled' | 'Approved' | 'Rejected';
-
-interface Application {
-  id: number;
-  child_name: string;
-  date_of_birth: string;
-  program: string;
-  parent_name: string;
-  parent_phone: string;
-  parent_email: string | null;
-  status: Status;
-  created_at: string;
-}
-
-const initialApplications: Application[] = [
-  { id: 1, child_name: 'Amaya Wijesinghe', date_of_birth: '2022-03-14', program: 'Bright Beginners', parent_name: 'Sanjaya Wijesinghe', parent_phone: '+94 71 987 6543', parent_email: 'sanjaya@example.com', status: 'Pending Review', created_at: '2026-11-05' },
-  { id: 2, child_name: 'Rehan Perera', date_of_birth: '2021-08-02', program: 'Little Explorers', parent_name: 'Nadeesha Perera', parent_phone: '+94 77 456 1122', parent_email: null, status: 'Pending Review', created_at: '2026-11-04' },
-  { id: 3, child_name: 'Thisuri Fernando', date_of_birth: '2020-12-21', program: 'Curious Minds', parent_name: 'Kamal Fernando', parent_phone: '+94 76 332 9087', parent_email: 'kamal.f@example.com', status: 'Interview Scheduled', created_at: '2026-11-02' },
-  { id: 4, child_name: 'Dineth Silva', date_of_birth: '2022-05-30', program: 'Bright Beginners', parent_name: 'Iresha Silva', parent_phone: '+94 70 221 8844', parent_email: 'iresha@example.com', status: 'Approved', created_at: '2026-10-28' },
-  { id: 5, child_name: 'Oshadi Jayasinghe', date_of_birth: '2019-11-11', program: 'Rising Stars', parent_name: 'Mahesh Jayasinghe', parent_phone: '+94 75 889 0012', parent_email: null, status: 'Rejected', created_at: '2026-10-25' },
-];
+type Status = AdmissionStatus;
 
 const statusStyles: Record<Status, string> = {
   'Pending Review': 'bg-amber-50 text-amber-700 border-amber-200',
@@ -37,14 +18,26 @@ const filters: ('All' | Status)[] = ['All', 'Pending Review', 'Interview Schedul
 const fmt = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 export default function AdminAdmissionsPage() {
-  const [applications, setApplications] = useState<Application[]>(initialApplications);
+  const [applications, setApplications] = useState<AdmissionRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'All' | Status>('All');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    getAdmissions().then((rows) => {
+      setApplications(rows);
+      setLoading(false);
+    });
+  }, []);
 
   const counts = useMemo(() => {
     const c: Record<Status, number> = { 'Pending Review': 0, 'Interview Scheduled': 0, Approved: 0, Rejected: 0 };
-    applications.forEach((a) => (c[a.status] += 1));
+    applications.forEach((a) => {
+      if (a.status in c) c[a.status] += 1;
+    });
     return c;
   }, [applications]);
 
@@ -60,8 +53,18 @@ export default function AdminAdmissionsPage() {
 
   const selected = applications.find((a) => a.id === selectedId) ?? null;
 
-  const updateStatus = (id: number, status: Status) =>
+  const updateStatus = (id: number, status: Status) => {
+    const previous = applications;
+    setError(null);
     setApplications((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+    startTransition(async () => {
+      const res = await updateAdmissionStatus(id, status);
+      if (res?.error) {
+        setApplications(previous);
+        setError(res.error);
+      }
+    });
+  };
 
   return (
     <div className="space-y-7 text-slate-900">
@@ -70,6 +73,8 @@ export default function AdminAdmissionsPage() {
         <h2 className="text-3xl font-extrabold tracking-tight">Admissions</h2>
         <p className="mt-1 text-xs text-slate-500">Review applications and move them through the admission process.</p>
       </div>
+
+      {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600">{error}</div>}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -100,7 +105,7 @@ export default function AdminAdmissionsPage() {
               type="button"
               onClick={() => setFilter(f)}
               className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
-                filter === f ? 'bg-[#14533E] text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                filter === f ? 'bg-[#14533E] text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
               }`}
             >
               {f}
@@ -133,7 +138,13 @@ export default function AdminAdmissionsPage() {
             </tr>
           </thead>
           <tbody>
-            {visible.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-10 text-center text-slate-500">
+                  Loading applications...
+                </td>
+              </tr>
+            ) : visible.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-5 py-10 text-center text-slate-500">
                   No applications found.
@@ -203,13 +214,28 @@ export default function AdminAdmissionsPage() {
             </div>
 
             <div className="mt-6 grid grid-cols-1 gap-2 border-t border-slate-100 pt-5 sm:grid-cols-3">
-              <button type="button" onClick={() => updateStatus(selected.id, 'Interview Scheduled')} className="rounded-xl border border-blue-200 bg-blue-50 py-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => updateStatus(selected.id, 'Interview Scheduled')}
+                className="rounded-xl border border-blue-200 bg-blue-50 py-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+              >
                 Schedule interview
               </button>
-              <button type="button" onClick={() => updateStatus(selected.id, 'Approved')} className="rounded-xl bg-[#14533E] py-2.5 text-xs font-semibold text-white hover:bg-[#0e3b2e]">
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => updateStatus(selected.id, 'Approved')}
+                className="rounded-xl bg-[#14533E] py-2.5 text-xs font-semibold text-white hover:bg-[#0e3b2e] disabled:opacity-60"
+              >
                 Approve
               </button>
-              <button type="button" onClick={() => updateStatus(selected.id, 'Rejected')} className="rounded-xl border border-red-200 bg-red-50 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-100">
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => updateStatus(selected.id, 'Rejected')}
+                className="rounded-xl border border-red-200 bg-red-50 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60"
+              >
                 Reject
               </button>
             </div>
