@@ -1,4 +1,3 @@
-
 -- Student Progress Records
 CREATE TABLE IF NOT EXISTS public.student_progress (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -62,6 +61,9 @@ WITH CHECK (
     )
 );
 
+
+-- Staff can record progress for students in assigned classes
+
 -- Staff can view progress for students in assigned classes
 CREATE POLICY "Staff can view assigned student progress"
 ON public.student_progress
@@ -71,10 +73,10 @@ USING (
     EXISTS (
         SELECT 1
         FROM public.students s
-        JOIN public.staff_class_assignments sca
-          ON sca.class_id = s.class_id
+        JOIN public.classes c ON c.id = s.class_id
+        JOIN public.staff st ON st.id = c.teacher_id
         WHERE s.id = student_progress.student_id
-          AND sca.staff_id = auth.uid()
+          AND st.profile_id = (SELECT auth.uid())
     )
 );
 
@@ -84,20 +86,64 @@ ON public.student_progress
 FOR INSERT
 TO authenticated
 WITH CHECK (
-    staff_id = auth.uid()
+    staff_id = (SELECT auth.uid())
     AND EXISTS (
         SELECT 1
         FROM public.profiles
-        WHERE id = auth.uid()
+        WHERE id = (SELECT auth.uid())
           AND role = 'staff'
     )
     AND EXISTS (
         SELECT 1
         FROM public.students s
-        JOIN public.staff_class_assignments sca
-          ON sca.class_id = s.class_id
+        JOIN public.classes c ON c.id = s.class_id
+        JOIN public.staff st ON st.id = c.teacher_id
         WHERE s.id = student_progress.student_id
-          AND sca.staff_id = auth.uid()
+          AND st.profile_id = (SELECT auth.uid())
     )
 );
 
+-- Remove the old unrestricted staff policy
+DROP POLICY IF EXISTS "Admin and staff can manage students"
+ON public.students;
+
+-- Remove unrestricted staff access
+DROP POLICY IF EXISTS "Admin and staff manage students"
+ON public.students;
+
+-- Admins can manage all students
+DROP POLICY IF EXISTS "Admins can manage all students"
+ON public.students;
+
+CREATE POLICY "Admins can manage all students"
+ON public.students
+FOR ALL TO authenticated
+USING (
+    EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = auth.uid() AND role = 'admin'
+    )
+)
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = auth.uid() AND role = 'admin'
+    )
+);
+
+-- Staff can view students in their assigned class
+DROP POLICY IF EXISTS "Staff can view assigned students"
+ON public.students;
+
+CREATE POLICY "Staff can view assigned students"
+ON public.students
+FOR SELECT TO authenticated
+USING (
+    EXISTS (
+        SELECT 1
+        FROM public.classes c
+        JOIN public.staff st ON st.id = c.teacher_id
+        WHERE c.id = students.class_id
+          AND st.profile_id = auth.uid()
+    )
+);
