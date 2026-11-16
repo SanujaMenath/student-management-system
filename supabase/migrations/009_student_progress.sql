@@ -38,8 +38,8 @@ CREATE INDEX IF NOT EXISTS idx_student_progress_staff_id
 ALTER TABLE public.student_progress
     ENABLE ROW LEVEL SECURITY;
 
-
 -- Admins can manage all student progress records
+DROP POLICY IF EXISTS "Admins can manage student progress" ON public.student_progress;
 CREATE POLICY "Admins can manage student progress"
 ON public.student_progress
 FOR ALL
@@ -61,10 +61,8 @@ WITH CHECK (
     )
 );
 
-
--- Staff can record progress for students in assigned classes
-
 -- Staff can view progress for students in assigned classes
+DROP POLICY IF EXISTS "Staff can view assigned student progress" ON public.student_progress;
 CREATE POLICY "Staff can view assigned student progress"
 ON public.student_progress
 FOR SELECT
@@ -76,21 +74,22 @@ USING (
         JOIN public.classes c ON c.id = s.class_id
         JOIN public.staff st ON st.id = c.teacher_id
         WHERE s.id = student_progress.student_id
-          AND st.profile_id = (SELECT auth.uid())
+          AND st.profile_id = auth.uid()
     )
 );
 
 -- Staff can record progress for students in assigned classes
+DROP POLICY IF EXISTS "Staff can record assigned student progress" ON public.student_progress;
 CREATE POLICY "Staff can record assigned student progress"
 ON public.student_progress
 FOR INSERT
 TO authenticated
 WITH CHECK (
-    staff_id = (SELECT auth.uid())
+    staff_id = auth.uid()
     AND EXISTS (
         SELECT 1
         FROM public.profiles
-        WHERE id = (SELECT auth.uid())
+        WHERE id = auth.uid()
           AND role = 'staff'
     )
     AND EXISTS (
@@ -99,22 +98,30 @@ WITH CHECK (
         JOIN public.classes c ON c.id = s.class_id
         JOIN public.staff st ON st.id = c.teacher_id
         WHERE s.id = student_progress.student_id
-          AND st.profile_id = (SELECT auth.uid())
+          AND st.profile_id = auth.uid()
     )
 );
 
--- Remove the old unrestricted staff policy
-DROP POLICY IF EXISTS "Admin and staff can manage students"
-ON public.students;
+-- Parents can view progress for their own children
+DROP POLICY IF EXISTS "Parents can view own children progress" ON public.student_progress;
+CREATE POLICY "Parents can view own children progress"
+ON public.student_progress
+FOR SELECT
+TO authenticated
+USING (
+    EXISTS (
+        SELECT 1
+        FROM public.students s
+        WHERE s.id = student_progress.student_id
+          AND s.parent_id = auth.uid()
+    )
+);
 
--- Remove unrestricted staff access
-DROP POLICY IF EXISTS "Admin and staff manage students"
-ON public.students;
 
--- Admins can manage all students
-DROP POLICY IF EXISTS "Admins can manage all students"
-ON public.students;
+DROP POLICY IF EXISTS "Admin and staff can manage students" ON public.students;
+DROP POLICY IF EXISTS "Admin and staff manage students" ON public.students;
 
+DROP POLICY IF EXISTS "Admins can manage all students" ON public.students;
 CREATE POLICY "Admins can manage all students"
 ON public.students
 FOR ALL TO authenticated
@@ -131,10 +138,7 @@ WITH CHECK (
     )
 );
 
--- Staff can view students in their assigned class
-DROP POLICY IF EXISTS "Staff can view assigned students"
-ON public.students;
-
+DROP POLICY IF EXISTS "Staff can view assigned students" ON public.students;
 CREATE POLICY "Staff can view assigned students"
 ON public.students
 FOR SELECT TO authenticated
