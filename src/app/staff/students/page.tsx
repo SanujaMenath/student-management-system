@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import {
@@ -15,60 +13,32 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   X,
-  BookOpen,
   UserRound,
   Phone,
   ClipboardList,
 } from "lucide-react";
+import {
+  getStaffStudents,
+  getStaffName,
+  saveStudentProgress,
+  getStaffStudentProgress,
+} from "@/actions/staff";
+
+import type { StudentRecord } from "@/actions/students";
 
 type Student = {
   id: string;
+  databaseId: string;
   name: string;
   initials: string;
   attendance: number;
   progress: string;
   parent: string;
   phone: string;
+  status: StudentRecord["status"];
+  className: string;
 };
 
-const students: Student[] = [
-  {
-    id: "HDM-0241",
-    name: "Aarav Perera",
-    initials: "AP",
-    attendance: 94,
-    progress: "Developing well",
-    parent: "Anjali Perera",
-    phone: "077 234 1198",
-  },
-  {
-    id: "HDM-0238",
-    name: "Nethmi Silva",
-    initials: "NS",
-    attendance: 91,
-    progress: "Excellent progress",
-    parent: "Kasun Silva",
-    phone: "071 455 8920",
-  },
-  {
-    id: "HDM-0231",
-    name: "Dineth Jayawardena",
-    initials: "DJ",
-    attendance: 89,
-    progress: "Needs reading support",
-    parent: "Amali Jayawardena",
-    phone: "076 381 4421",
-  },
-  {
-    id: "HDM-0225",
-    name: "Mihara Fernando",
-    initials: "MF",
-    attendance: 96,
-    progress: "Developing well",
-    parent: "D. Fernando",
-    phone: "075 229 1840",
-  },
-];
 
 const progressOptions = [
   "All progress levels",
@@ -78,11 +48,79 @@ const progressOptions = [
 ];
 
 function StudentsContent() {
+    const [students, setStudents] = useState<Student[]>([]);
+    const [staffName, setStaffName] = useState("Staff Member");
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadStudents() {
+      try {
+        const records: StudentRecord[] = await getStaffStudents();
+        const progressRecords = await getStaffStudentProgress();
+
+        const progressMap = new Map(
+          progressRecords.map((record) => [
+            record.student_id,
+            record.progress_level,
+          ])
+        );
+
+        const mappedStudents: Student[] = records.map((record) => {
+          const name = `${record.first_name} ${record.last_name}`.trim();
+
+          return {
+            id: record.admission_number,
+            databaseId: record.id,
+            name,
+            initials: `${record.first_name.charAt(0)}${record.last_name.charAt(0)}`.toUpperCase(),
+            attendance: -1,
+            progress: progressMap.get(record.id) ?? "Not recorded",
+            parent: record.parent?.full_name ?? "Not available",
+            phone: record.parent?.phone ?? "Not available",
+            status: record.status,
+            className: record.classes?.name ?? "Not assigned",
+          };
+        });
+
+        if (active) setStudents(mappedStudents);
+      } catch (error) {
+        if (active) {
+          setLoadError(
+            error instanceof Error ? error.message : "Unable to load students."
+          );
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    async function loadStaffName() {
+  try {
+    const name = await getStaffName();
+
+    if (active) {
+      setStaffName(name);
+    }
+  } catch (error) {
+    console.error("Unable to load staff name:", error);
+  }
+}
+
+    void loadStudents();
+    void loadStaffName();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const searchParams = useSearchParams();
 
   const urlSearch = searchParams.get("search") ?? "";
 
-  // FIX: The input is controlled by its own state.
   const [localSearch, setLocalSearch] = useState(urlSearch);
 
   useEffect(() => {
@@ -115,7 +153,7 @@ function StudentsContent() {
   const [draftAttendance, setDraftAttendance] = useState("All");
 
   const filteredStudents = students.filter((student) => {
-    const query = search.trim().toLowerCase();
+        const query = search.trim().toLowerCase();
 
     const matchesSearch =
       student.name.toLowerCase().includes(query) ||
@@ -130,7 +168,8 @@ function StudentsContent() {
       (attendanceFilter === "90% and above" &&
         student.attendance >= 90) ||
       (attendanceFilter === "Below 90%" &&
-        student.attendance < 90);
+      student.attendance >= 0 &&
+      student.attendance < 90);
 
     return (
       matchesSearch &&
@@ -140,7 +179,7 @@ function StudentsContent() {
   });
 
   const openProgressModal = (student?: Student) => {
-    setRecordStudentId(student?.id ?? "");
+    setRecordStudentId(student?.databaseId ?? "");
     setLearningArea("");
     setProgressLevel("");
     setTeacherNote("");
@@ -158,15 +197,41 @@ function StudentsContent() {
     setShowFiltersModal(true);
   };
 
-  const handleSaveProgress = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+const handleSaveProgress = async (event: FormEvent<HTMLFormElement>) => {
+  event.preventDefault();
 
-    alert(
-      "Progress form completed. Database saving will be connected later."
+  try {
+    await saveStudentProgress({
+      studentId: recordStudentId,
+      learningArea,
+      progressLevel,
+      teacherNote,
+    });
+
+    setStudents((previousStudents) =>
+      previousStudents.map((student) =>
+        student.databaseId === recordStudentId
+          ? { ...student, progress: progressLevel }
+          : student
+      )
     );
 
+    alert("Student progress saved successfully!");
+
     setShowProgressModal(false);
-  };
+    setRecordStudentId("");
+    setLearningArea("");
+    setProgressLevel("");
+    setTeacherNote("");
+  } catch (error) {
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Unable to save student progress."
+    );
+  }
+};
+
 
   const handleApplyFilters = () => {
     setProgressFilter(draftProgress);
@@ -180,15 +245,20 @@ function StudentsContent() {
       {/* Greeting */}
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-[#72839A]">
-          SUNDAY, 8 NOVEMBER 2026
+          {new Date().toLocaleDateString("en-GB", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }).toUpperCase()}
         </p>
 
         <h1 className="mt-4 text-[32px] font-semibold tracking-tight text-[#082F27]">
-          Good morning, Ms. Dilani
+          Good morning, {staffName}
         </h1>
 
         <p className="mt-3 text-[16px] text-[#72839A]">
-          Your Bright Beginners class is ready for a great day.
+          Your students are ready for a great day.
         </p>
       </div>
 
@@ -200,7 +270,7 @@ function StudentsContent() {
           </h2>
 
           <p className="mt-2 text-sm text-[#72839A]">
-            Students assigned to your Bright Beginners class only.
+            Students assigned to your classes only.
           </p>
         </div>
 
@@ -290,7 +360,11 @@ function StudentsContent() {
       </div>
 
       {/* Student cards */}
-      {filteredStudents.length > 0 ? (
+      {loading ? (
+          <p className="mt-5 text-sm text-gray-500">Loading students...</p>
+        ) : loadError ? (
+          <p className="mt-5 text-sm text-red-600">{loadError}</p>
+        ) : filteredStudents.length > 0 ? (
         <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
           {filteredStudents.map((student) => (
             <div
@@ -311,13 +385,13 @@ function StudentsContent() {
                     </h3>
 
                     <p className="mt-1 text-xs text-[#72839A]">
-                      {student.id} · Bright Beginners
+                      {student.id} · {student.className}
                     </p>
                   </div>
                 </div>
 
                 <span className="rounded-full bg-[#DDF2E9] px-3 py-1 text-xs font-medium text-[#187055]">
-                  Active
+                  {student.status}
                 </span>
               </div>
 
@@ -328,7 +402,7 @@ function StudentsContent() {
                 </span>
 
                 <span className="text-sm font-semibold text-[#111827]">
-                  {student.attendance}%
+                  {student.attendance < 0 ? "Not recorded" : `${student.attendance}%`}
                 </span>
               </div>
 
@@ -435,7 +509,7 @@ function StudentsContent() {
                 </h2>
 
                 <p className="mt-2 text-sm text-[#72839A]">
-                  Bright Beginners · Room 02
+                  {students.find((student) => student.databaseId === recordStudentId)?.className ?? "Select a student"}
                 </p>
               </div>
 
@@ -468,12 +542,12 @@ function StudentsContent() {
                   onChange={(event) =>
                     setRecordStudentId(event.target.value)
                   }
-                  className="w-full rounded-xl border border-[#D8E4DF] bg-white px-4 py-3 text-sm outline-none"
+                  className="w-full resize-none rounded-xl border border-[#D8E4DF] bg-white px-4 py-3 text-sm text-[#111827] placeholder:text-[#9CA3AF] outline-none"
                 >
                   <option value="">Select a student</option>
 
                   {students.map((student) => (
-                    <option key={student.id} value={student.id}>
+                    <option key={student.databaseId} value={student.databaseId}>
                       {student.name} ({student.id})
                     </option>
                   ))}
@@ -495,7 +569,7 @@ function StudentsContent() {
                   onChange={(event) =>
                     setLearningArea(event.target.value)
                   }
-                  className="w-full rounded-xl border border-[#D8E4DF] bg-white px-4 py-3 text-sm outline-none"
+                  className="w-full rounded-xl border border-[#D8E4DF] bg-white px-4 py-3 text-sm !text-[#111827] outline-none"
                 >
                   <option value="">Select learning area</option>
                   <option value="Language and literacy">
@@ -529,7 +603,7 @@ function StudentsContent() {
                   onChange={(event) =>
                     setProgressLevel(event.target.value)
                   }
-                  className="w-full rounded-xl border border-[#D8E4DF] bg-white px-4 py-3 text-sm outline-none"
+                 className="w-full rounded-xl border border-[#D8E4DF] bg-white px-4 py-3 text-sm !text-[#111827] outline-none"
                 >
                   <option value="">Select progress level</option>
                   <option value="Excellent progress">
@@ -560,7 +634,7 @@ function StudentsContent() {
                     setTeacherNote(event.target.value)
                   }
                   placeholder="Write a short note about the student's progress..."
-                  className="w-full resize-none rounded-xl border border-[#D8E4DF] px-4 py-3 text-sm outline-none"
+                  className="w-full resize-none rounded-xl border border-[#D8E4DF] bg-white px-4 py-3 text-sm !text-[#111827] placeholder:!text-[#9CA3AF] outline-none"
                 />
               </div>
 
@@ -592,7 +666,7 @@ function StudentsContent() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="student-profile-title"
-            className="w-full max-w-[775px] rounded-[22px] bg-white p-7 shadow-2xl sm:p-9"
+            className="w-full max-w-[775px] rounded-[22px] bg-white p-7 text-[#111827] shadow-2xl sm:p-9"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -608,7 +682,7 @@ function StudentsContent() {
                 </h2>
 
                 <p className="mt-2 text-sm text-[#72839A]">
-                  Bright Beginners · Room 02
+                  {selectedStudent.className}
                 </p>
               </div>
 
@@ -644,7 +718,9 @@ function StudentsContent() {
                   Attendance
                 </p>
                 <p className="mt-2 font-semibold">
-                  {selectedStudent.attendance}%
+                  {selectedStudent.attendance < 0
+                    ? "Not recorded"
+                    : `${selectedStudent.attendance}%`}
                 </p>
               </div>
 
@@ -673,8 +749,8 @@ function StudentsContent() {
             </div>
 
             <p className="mt-5 text-sm text-[#72839A]">
-              This profile currently displays sample student data.
-              Full student records will be connected later.
+              Student information and learning progress are loaded
+              from the database. Attendance records are not yet connected.
             </p>
 
             <div className="mt-7 flex justify-end gap-3 border-t border-[#D8E4DF] pt-6">
@@ -708,7 +784,7 @@ function StudentsContent() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="filters-title"
-            className="w-full max-w-[775px] rounded-[22px] bg-white p-7 shadow-2xl sm:p-9"
+            className="w-full max-w-[775px] rounded-[22px] bg-white p-7 text-[#111827] shadow-2xl sm:p-9"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -724,7 +800,7 @@ function StudentsContent() {
                 </h2>
 
                 <p className="mt-2 text-sm text-[#72839A]">
-                  Bright Beginners · Room 02
+                  {[...new Set(students.map((student) => student.className))].join(", ") || "No classes assigned"}
                 </p>
               </div>
 
@@ -753,7 +829,7 @@ function StudentsContent() {
                   onChange={(event) =>
                     setDraftProgress(event.target.value)
                   }
-                  className="w-full rounded-xl border border-[#D8E4DF] bg-white px-4 py-3 text-sm outline-none"
+                  className="w-full rounded-xl border border-[#D8E4DF] bg-white px-4 py-3 text-sm !text-[#111827] outline-none"
                 >
                   {progressOptions.map((option) => (
                     <option key={option} value={option}>
@@ -777,7 +853,7 @@ function StudentsContent() {
                   onChange={(event) =>
                     setDraftAttendance(event.target.value)
                   }
-                  className="w-full rounded-xl border border-[#D8E4DF] bg-white px-4 py-3 text-sm outline-none"
+                  className="w-full rounded-xl border border-[#D8E4DF] bg-white px-4 py-3 text-sm !text-[#111827] outline-none"
                 >
                   <option value="All">All attendance levels</option>
                   <option value="90% and above">90% and above</option>
