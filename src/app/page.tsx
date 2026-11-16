@@ -1,4 +1,16 @@
-import Image from "next/image";
+'use client';
+
+import Link from 'next/link';
+import Image from 'next/image';
+import {
+  ArrowRight,
+  User,
+  ShieldCheck,
+  HeartHandshake,
+  Star,
+} from 'lucide-react';
+import PublicNavbar from '@/components/shared/PublicNavbar';
+import Footer from '@/components/shared/Footer';
 
 export default function Home() {
   return (
@@ -63,7 +75,9 @@ export default function Home() {
             Documentation
           </a>
         </div>
-      </main>
+      </section>
+      <Footer />
+
     </div>
   );
 }
