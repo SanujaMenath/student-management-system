@@ -479,7 +479,7 @@ export async function uploadLearningMaterial(
 
 export async function deleteLearningMaterial(
   materialId: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; warning?: string }> {
   const context = await getAuthenticatedStaffContext();
 
   if ('error' in context) {
@@ -542,14 +542,15 @@ export async function deleteLearningMaterial(
     material.storage_path
   );
 
-  if (!storageResult.success) {
-    console.error(
-      `Warning: Database row deleted, but storage object deletion returned: ${storageResult.error}`
-    );
-  }
-
   revalidatePath('/staff/learning-materials');
   revalidatePath('/parent/learning-management');
+
+  if (!storageResult.success) {
+    return {
+      success: true,
+      warning: `The database record was deleted, but physical file removal from storage returned: ${storageResult.error}.`,
+    };
+  }
 
   return {
     success: true,

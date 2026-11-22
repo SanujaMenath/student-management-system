@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, CheckCircle, AlertCircle, AlertTriangle, X } from 'lucide-react';
 import {
   getStaffAssignedClasses,
   getStaffLearningMaterials,
+  deleteLearningMaterial,
+  getMaterialDownloadUrl,
   type AssignedClass,
 } from '@/actions/learning-materials';
 import type {
@@ -18,6 +20,7 @@ import { EmptyState } from './components/EmptyState';
 import { MaterialsLoadingSkeleton } from './components/MaterialsLoadingSkeleton';
 import { StatusAlertBanner } from './components/StatusAlertBanner';
 import { UploadMaterialModal } from './components/UploadMaterialModal';
+import { DeleteMaterialModal } from './components/DeleteMaterialModal';
 
 const STANDARD_CURRICULUM_SUBJECTS = [
   'English',
@@ -30,7 +33,11 @@ const STANDARD_CURRICULUM_SUBJECTS = [
 export default function StaffLearningMaterialsPage() {
   const [assignedClasses, setAssignedClasses] = useState<AssignedClass[]>([]);
   const [activeClassId, setActiveClassId] = useState<number | null>(null);
-  const [staffInfo, setStaffInfo] = useState<{ id: string; full_name: string } | null>(null);
+  const [staffInfo, setStaffInfo] = useState<{
+    id: string;
+    full_name: string;
+    profile_id: string;
+  } | null>(null);
 
   const [materials, setMaterials] = useState<LearningMaterialItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +45,16 @@ export default function StaffLearningMaterialsPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<'unlinked_staff' | 'no_classes' | 'error' | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  // Modals and action states
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [materialToDelete, setMaterialToDelete] = useState<LearningMaterialItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{
+    type: 'success' | 'warning' | 'error';
+    message: string;
+  } | null>(null);
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,6 +77,81 @@ export default function StaffLearningMaterialsPage() {
       setActiveClassId(targetClassId);
     }
     await loadMaterialsForClass(targetClassId);
+    setActionFeedback({
+      type: 'success',
+      message: 'Learning material uploaded successfully.',
+    });
+  };
+
+  const handleDownload = async (material: LearningMaterialItem) => {
+    if (downloadingId) return;
+    setDownloadingId(material.id);
+    setActionFeedback(null);
+
+    try {
+      const res = await getMaterialDownloadUrl(material.id);
+      if (!res.signedUrl || res.error) {
+        setActionFeedback({
+          type: 'error',
+          message: res.error || 'Failed to generate secure download URL. Please try again.',
+        });
+      } else {
+        const link = document.createElement('a');
+        link.href = res.signedUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.download = material.file_name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (err) {
+      setActionFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'An error occurred during file download.',
+      });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!materialToDelete) return;
+    setIsDeleting(true);
+    setActionFeedback(null);
+
+    try {
+      const res = await deleteLearningMaterial(materialToDelete.id);
+      if (!res.success) {
+        setActionFeedback({
+          type: 'error',
+          message: res.error || 'Failed to delete learning material.',
+        });
+      } else {
+        if (res.warning) {
+          setActionFeedback({
+            type: 'warning',
+            message: res.warning,
+          });
+        } else {
+          setActionFeedback({
+            type: 'success',
+            message: `"${materialToDelete.title}" was permanently deleted.`,
+          });
+        }
+        setMaterialToDelete(null);
+        if (activeClassId) {
+          await loadMaterialsForClass(activeClassId);
+        }
+      }
+    } catch (err) {
+      setActionFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'An error occurred during deletion.',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   useEffect(() => {
@@ -121,6 +212,7 @@ export default function StaffLearningMaterialsPage() {
     setIsLoading(true);
     setErrorMessage(null);
     setErrorType(null);
+    setActionFeedback(null);
     setReloadKey((k) => k + 1);
   };
 
@@ -129,6 +221,7 @@ export default function StaffLearningMaterialsPage() {
     setSearchQuery('');
     setSelectedSubject('All');
     setSelectedFileType('All');
+    setActionFeedback(null);
     void loadMaterialsForClass(newClassId);
   };
 
@@ -242,6 +335,40 @@ export default function StaffLearningMaterialsPage() {
         )}
       </div>
 
+      {/* Action Feedback Banner */}
+      {actionFeedback && (
+        <div
+          className={`flex items-start justify-between gap-3 rounded-2xl border p-4 text-xs shadow-xs transition ${
+            actionFeedback.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+              : actionFeedback.type === 'warning'
+              ? 'border-amber-200 bg-amber-50 text-amber-900'
+              : 'border-red-200 bg-red-50 text-red-900'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            {actionFeedback.type === 'success' && (
+              <CheckCircle className="h-4 w-4 shrink-0 text-emerald-600" />
+            )}
+            {actionFeedback.type === 'warning' && (
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+            )}
+            {actionFeedback.type === 'error' && (
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+            )}
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionFeedback(null)}
+            aria-label="Dismiss notification"
+            className="text-slate-400 hover:text-slate-600"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Main Content Area */}
       {isLoading ? (
         <MaterialsLoadingSkeleton />
@@ -305,7 +432,14 @@ export default function StaffLearningMaterialsPage() {
 
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
                 {filteredMaterials.map((material) => (
-                  <MaterialCard key={material.id} material={material} />
+                  <MaterialCard
+                    key={material.id}
+                    material={material}
+                    currentUserId={staffInfo?.profile_id}
+                    isDownloading={downloadingId === material.id}
+                    onDownload={handleDownload}
+                    onDelete={(m) => setMaterialToDelete(m)}
+                  />
                 ))}
               </div>
             </div>
@@ -323,6 +457,15 @@ export default function StaffLearningMaterialsPage() {
           onUploadSuccess={handleUploadSuccess}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteMaterialModal
+        isOpen={Boolean(materialToDelete)}
+        material={materialToDelete}
+        isDeleting={isDeleting}
+        onClose={() => setMaterialToDelete(null)}
+        onConfirmDelete={handleDeleteConfirm}
+      />
     </div>
   );
 }

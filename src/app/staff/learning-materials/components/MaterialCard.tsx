@@ -3,9 +3,11 @@ import {
   Video,
   Image as ImageIcon,
   File as FileIcon,
-  Calendar,
   HardDrive,
   User,
+  Download,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import type {
   LearningMaterialItem,
@@ -14,6 +16,10 @@ import type {
 
 interface MaterialCardProps {
   material: LearningMaterialItem;
+  currentUserId?: string | null;
+  isDownloading?: boolean;
+  onDownload: (material: LearningMaterialItem) => void;
+  onDelete?: (material: LearningMaterialItem) => void;
 }
 
 const SUBJECT_THEMES: Record<string, { badge: string; border: string }> = {
@@ -94,7 +100,13 @@ function getFileTypeDetails(type: LearningMaterialFileType) {
   }
 }
 
-export function MaterialCard({ material }: MaterialCardProps) {
+export function MaterialCard({
+  material,
+  currentUserId,
+  isDownloading = false,
+  onDownload,
+  onDelete,
+}: MaterialCardProps) {
   const theme =
     SUBJECT_THEMES[material.subject] || {
       badge: 'bg-slate-100 text-slate-700 border-slate-200',
@@ -103,6 +115,7 @@ export function MaterialCard({ material }: MaterialCardProps) {
 
   const fileType = getFileTypeDetails(material.file_type);
   const TypeIcon = fileType.Icon;
+  const canDelete = Boolean(currentUserId && material.uploaded_by === currentUserId);
 
   return (
     <div
@@ -139,30 +152,60 @@ export function MaterialCard({ material }: MaterialCardProps) {
             No additional description provided.
           </p>
         )}
-      </div>
-
-      {/* Metadata Footer */}
-      <div className="mt-5 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
-        <div className="flex flex-wrap items-center justify-between gap-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <HardDrive className="h-3.5 w-3.5 text-slate-400" />
-            <span>{formatFileSize(material.file_size)}</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5 text-slate-400" />
-            <span>{formatUploadDate(material.created_at)}</span>
-          </div>
-        </div>
 
         {material.uploader_name && (
-          <div className="mt-2 flex items-center gap-1.5 text-slate-400">
+          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
             <User className="h-3 w-3" />
             <span className="truncate">Added by {material.uploader_name}</span>
           </div>
         )}
       </div>
+
+      {/* Metadata & Actions Footer */}
+      <div className="mt-5 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+          <HardDrive className="h-3.5 w-3.5 text-slate-400" />
+          <span>{formatFileSize(material.file_size)}</span>
+          <span>•</span>
+          <span>{formatUploadDate(material.created_at)}</span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {canDelete && onDelete && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(material);
+              }}
+              title="Delete material"
+              aria-label={`Delete ${material.title}`}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+
+          <button
+            type="button"
+            disabled={isDownloading}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDownload(material);
+            }}
+            title="Download file"
+            aria-label={`Download ${material.title}`}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#EAF4FA] px-2.5 text-xs font-semibold text-[#195477] hover:bg-[#D6E9F5] transition disabled:opacity-50"
+          >
+            {isDownloading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-[#195477]" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            <span>Download</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
-
