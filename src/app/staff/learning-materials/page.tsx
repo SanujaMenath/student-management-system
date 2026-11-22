@@ -1,32 +1,54 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   getStaffAssignedClasses,
   getStaffLearningMaterials,
   type AssignedClass,
 } from '@/actions/learning-materials';
+import type {
+  LearningMaterialItem,
+  LearningMaterialFileType,
+} from '@/types/learning-materials';
 import { ClassBanner } from './components/ClassBanner';
+import { MaterialsFilterBar } from './components/MaterialsFilterBar';
+import { MaterialCard } from './components/MaterialCard';
+import { EmptyState } from './components/EmptyState';
 import { MaterialsLoadingSkeleton } from './components/MaterialsLoadingSkeleton';
 import { StatusAlertBanner } from './components/StatusAlertBanner';
+
+const STANDARD_CURRICULUM_SUBJECTS = [
+  'English',
+  'Mathematics',
+  'Environmental Studies',
+  'General Knowledge',
+  'Art and Craft',
+];
 
 export default function StaffLearningMaterialsPage() {
   const [assignedClasses, setAssignedClasses] = useState<AssignedClass[]>([]);
   const [activeClassId, setActiveClassId] = useState<number | null>(null);
   const [staffInfo, setStaffInfo] = useState<{ id: string; full_name: string } | null>(null);
-  const [materialsCount, setMaterialsCount] = useState<number>(0);
 
+  const [materials, setMaterials] = useState<LearningMaterialItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isClassLoading, setIsClassLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<'unlinked_staff' | 'no_classes' | 'error' | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
+  // Filters state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('All');
+  const [selectedFileType, setSelectedFileType] = useState<LearningMaterialFileType | 'All'>('All');
+
   const loadMaterialsForClass = useCallback(async (classId: number) => {
     setIsClassLoading(true);
     const res = await getStaffLearningMaterials({ classId });
     if (res.success) {
-      setMaterialsCount(res.materials.length);
+      setMaterials(res.materials);
+    } else {
+      setErrorMessage(res.error || 'Failed to load learning materials.');
     }
     setIsClassLoading(false);
   }, []);
@@ -71,7 +93,9 @@ export default function StaffLearningMaterialsPage() {
       if (ignore) return;
 
       if (matRes.success) {
-        setMaterialsCount(matRes.materials.length);
+        setMaterials(matRes.materials);
+      } else {
+        setErrorMessage(matRes.error || 'Failed to load learning materials.');
       }
       setIsLoading(false);
     }
@@ -92,8 +116,87 @@ export default function StaffLearningMaterialsPage() {
 
   const handleClassChange = (newClassId: number) => {
     setActiveClassId(newClassId);
+    setSearchQuery('');
+    setSelectedSubject('All');
+    setSelectedFileType('All');
     void loadMaterialsForClass(newClassId);
   };
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSelectedSubject('All');
+    setSelectedFileType('All');
+  };
+
+  const availableSubjects = useMemo(() => {
+    const subjectsFromMaterials = Array.from(
+      new Set(materials.map((m) => m.subject))
+    ).filter(Boolean);
+    const combined = Array.from(
+      new Set([...STANDARD_CURRICULUM_SUBJECTS, ...subjectsFromMaterials])
+    );
+    return combined.sort();
+  }, [materials]);
+
+  // Simultaneous multi-field filtering
+  const filteredMaterials = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+
+    return materials.filter((item) => {
+      const matchesSearch =
+        !q ||
+        item.title.toLowerCase().includes(q) ||
+        (item.description && item.description.toLowerCase().includes(q));
+
+      const matchesSubject =
+        selectedSubject === 'All' || item.subject === selectedSubject;
+
+      const matchesFileType =
+        selectedFileType === 'All' || item.file_type === selectedFileType;
+
+      return matchesSearch && matchesSubject && matchesFileType;
+    });
+  }, [materials, searchQuery, selectedSubject, selectedFileType]);
+
+  // Dynamic counts for each file category based on active search and subject
+  const fileTypeCounts = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    const baseList = materials.filter((item) => {
+      const matchesSearch =
+        !q ||
+        item.title.toLowerCase().includes(q) ||
+        (item.description && item.description.toLowerCase().includes(q));
+
+      const matchesSubject =
+        selectedSubject === 'All' || item.subject === selectedSubject;
+
+      return matchesSearch && matchesSubject;
+    });
+
+    const counts: Record<LearningMaterialFileType | 'All', number> = {
+      All: baseList.length,
+      PDF: 0,
+      Document: 0,
+      Video: 0,
+      Image: 0,
+      Other: 0,
+    };
+
+    for (const item of baseList) {
+      if (item.file_type in counts) {
+        counts[item.file_type] += 1;
+      } else {
+        counts.Other += 1;
+      }
+    }
+
+    return counts;
+  }, [materials, searchQuery, selectedSubject]);
+
+  const isFiltered =
+    searchQuery.trim() !== '' ||
+    selectedSubject !== 'All' ||
+    selectedFileType !== 'All';
 
   return (
     <div className="space-y-6 text-slate-900 pb-10">
@@ -137,26 +240,53 @@ export default function StaffLearningMaterialsPage() {
             staffName={staffInfo?.full_name}
           />
 
-          {/* Section placeholder showing class materials state */}
+          {/* Filter Bar */}
+          <MaterialsFilterBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            selectedSubject={selectedSubject}
+            onSubjectChange={setSelectedSubject}
+            selectedFileType={selectedFileType}
+            onFileTypeChange={setSelectedFileType}
+            availableSubjects={availableSubjects}
+            fileTypeCounts={fileTypeCounts}
+          />
+
+          {/* Result Count and Grid */}
           {isClassLoading ? (
             <div className="flex h-48 items-center justify-center rounded-2xl border border-slate-200 bg-white">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#187055] border-t-transparent" />
             </div>
+          ) : materials.length === 0 ? (
+            <EmptyState isFiltered={false} />
+          ) : filteredMaterials.length === 0 ? (
+            <EmptyState isFiltered={true} onResetFilters={handleResetFilters} />
           ) : (
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-sm font-bold text-slate-800">
-                    Class Learning Materials
-                  </h2>
-                  <span className="rounded-full bg-[#E7F3EE] px-2.5 py-0.5 text-xs font-semibold text-[#187055]">
-                    {materialsCount} {materialsCount === 1 ? 'Resource' : 'Resources'}
-                  </span>
-                </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-semibold text-slate-500">
+                  {isFiltered
+                    ? `Showing ${filteredMaterials.length} of ${materials.length} materials`
+                    : `${materials.length} ${
+                        materials.length === 1 ? 'material' : 'materials'
+                      }`}
+                </span>
+                {isFiltered && (
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="text-xs font-semibold text-[#187055] hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                )}
               </div>
-              <p className="mt-4 text-xs text-slate-500">
-                Classroom resources successfully loaded for the selected assigned class.
-              </p>
+
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {filteredMaterials.map((material) => (
+                  <MaterialCard key={material.id} material={material} />
+                ))}
+              </div>
             </div>
           )}
         </div>
