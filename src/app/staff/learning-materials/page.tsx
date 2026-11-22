@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Plus, CheckCircle, AlertCircle, AlertTriangle, X } from 'lucide-react';
 import {
   getStaffAssignedClasses,
@@ -61,9 +61,18 @@ export default function StaffLearningMaterialsPage() {
   const [selectedSubject, setSelectedSubject] = useState('All');
   const [selectedFileType, setSelectedFileType] = useState<LearningMaterialFileType | 'All'>('All');
 
+  const latestClassRequestIdRef = useRef(0);
+
   const loadMaterialsForClass = useCallback(async (classId: number) => {
+    const requestId = ++latestClassRequestIdRef.current;
     setIsClassLoading(true);
+
     const res = await getStaffLearningMaterials({ classId });
+
+    if (requestId !== latestClassRequestIdRef.current) {
+      return;
+    }
+
     if (res.success) {
       setMaterials(res.materials);
     } else {
@@ -327,7 +336,7 @@ export default function StaffLearningMaterialsPage() {
           <button
             type="button"
             onClick={() => setIsUploadModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#187055] px-4 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-[#145C46] transition"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#187055] px-4 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-[#145C46] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#187055]/40 transition"
           >
             <Plus className="h-4 w-4" />
             <span>Upload Material</span>
@@ -362,7 +371,7 @@ export default function StaffLearningMaterialsPage() {
             type="button"
             onClick={() => setActionFeedback(null)}
             aria-label="Dismiss notification"
-            className="text-slate-400 hover:text-slate-600"
+            className="text-slate-400 hover:text-slate-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400 rounded-lg p-0.5"
           >
             <X className="h-4 w-4" />
           </button>

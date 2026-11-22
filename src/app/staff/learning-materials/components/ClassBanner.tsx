@@ -20,7 +20,7 @@ export function ClassBanner({
   if (!currentClass) return null;
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-[#D0E2ED] bg-[#EAF4FA] p-5 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-4 rounded-2xl border border-[#D0E2ED] bg-[#EAF4FA] p-5 sm:flex-row sm:items-center sm:justify-between shadow-xs">
       <div className="flex items-start gap-4">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#D6E9F5] text-[#195477]">
           <ShieldCheck className="h-6 w-6 text-[#24628A]" />
@@ -46,7 +46,7 @@ export function ClassBanner({
       </div>
 
       {assignedClasses.length > 1 && (
-        <div className="relative shrink-0">
+        <div className="relative w-full sm:w-auto shrink-0">
           <label htmlFor="class-selector" className="sr-only">
             Switch Assigned Class
           </label>
@@ -56,7 +56,7 @@ export function ClassBanner({
               value={activeClassId ?? ''}
               onChange={(e) => onClassChange(Number(e.target.value))}
               aria-label="Switch assigned class"
-              className="h-11 appearance-none rounded-xl border border-[#B5D5E8] bg-white py-2 pl-3.5 pr-10 text-xs font-semibold text-[#195477] shadow-xs outline-hidden transition hover:border-[#24628A] focus:border-[#24628A] focus:ring-2 focus:ring-[#24628A]/20"
+              className="h-11 w-full sm:w-auto appearance-none rounded-xl border border-[#B5D5E8] bg-white py-2 pl-3.5 pr-10 text-xs font-semibold text-[#195477] shadow-xs outline-hidden transition hover:border-[#24628A] focus:border-[#24628A] focus-visible:ring-2 focus-visible:ring-[#24628A]/30"
             >
               {assignedClasses.map((cls) => (
                 <option key={cls.id} value={cls.id}>
@@ -71,4 +71,3 @@ export function ClassBanner({
     </div>
   );
 }
-

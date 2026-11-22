@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import type { LearningMaterialItem } from '@/types/learning-materials';
 
@@ -17,17 +17,50 @@ export function DeleteMaterialModal({
   onClose,
   onConfirmDelete,
 }: DeleteMaterialModalProps) {
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!isOpen) return;
+
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    cancelButtonRef.current?.focus();
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !isDeleting) {
         onClose();
+        return;
+      }
+
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled])'
+        );
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      previousFocusRef.current?.focus();
+    };
   }, [isOpen, isDeleting, onClose]);
 
   if (!isOpen || !material) return null;
@@ -47,7 +80,10 @@ export function DeleteMaterialModal({
       onClick={handleBackdropClick}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
     >
-      <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-2xl">
+      <div
+        ref={modalRef}
+        className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-7 shadow-2xl"
+      >
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600">
           <Trash2 className="h-6 w-6" />
         </div>
@@ -56,7 +92,7 @@ export function DeleteMaterialModal({
           Delete Learning Material?
         </h3>
 
-        <p id="delete-dialog-desc" className="mt-2 text-xs leading-relaxed text-slate-600">
+        <p id="delete-dialog-desc" className="mt-2 text-xs leading-relaxed text-slate-600 break-words">
           Are you sure you want to delete{' '}
           <span className="font-semibold text-slate-900">
             &ldquo;{material.title}&rdquo;
@@ -71,10 +107,11 @@ export function DeleteMaterialModal({
 
         <div className="mt-6 flex items-center justify-end gap-3">
           <button
+            ref={cancelButtonRef}
             type="button"
             disabled={isDeleting}
             onClick={onClose}
-            className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition"
+            className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400 disabled:opacity-40 transition"
           >
             Cancel
           </button>
@@ -82,7 +119,7 @@ export function DeleteMaterialModal({
             type="button"
             disabled={isDeleting}
             onClick={onConfirmDelete}
-            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-red-700 disabled:opacity-50 transition"
+            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-red-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500/50 disabled:opacity-50 transition"
           >
             {isDeleting ? (
               <>
@@ -101,4 +138,3 @@ export function DeleteMaterialModal({
     </div>
   );
 }
-

@@ -138,13 +138,13 @@ export function MaterialCard({
         </div>
 
         {/* Title */}
-        <h3 className="mt-3.5 text-base font-bold text-slate-900 line-clamp-2 leading-snug group-hover:text-[#187055] transition-colors">
+        <h3 className="mt-3.5 text-base font-bold text-slate-900 line-clamp-2 leading-snug break-words group-hover:text-[#187055] transition-colors">
           {material.title}
         </h3>
 
         {/* Description */}
         {material.description ? (
-          <p className="mt-2 text-xs leading-relaxed text-slate-600 line-clamp-2">
+          <p className="mt-2 text-xs leading-relaxed text-slate-600 line-clamp-2 break-words">
             {material.description}
           </p>
         ) : (
@@ -155,7 +155,7 @@ export function MaterialCard({
 
         {material.uploader_name && (
           <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
-            <User className="h-3 w-3" />
+            <User className="h-3 w-3 shrink-0" />
             <span className="truncate">Added by {material.uploader_name}</span>
           </div>
         )}
@@ -163,14 +163,14 @@ export function MaterialCard({
 
       {/* Metadata & Actions Footer */}
       <div className="mt-5 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-          <HardDrive className="h-3.5 w-3.5 text-slate-400" />
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 truncate">
+          <HardDrive className="h-3.5 w-3.5 shrink-0 text-slate-400" />
           <span>{formatFileSize(material.file_size)}</span>
           <span>•</span>
-          <span>{formatUploadDate(material.created_at)}</span>
+          <span className="truncate">{formatUploadDate(material.created_at)}</span>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           {canDelete && onDelete && (
             <button
               type="button"
@@ -180,7 +180,7 @@ export function MaterialCard({
               }}
               title="Delete material"
               aria-label={`Delete ${material.title}`}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500/30 transition"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -195,7 +195,7 @@ export function MaterialCard({
             }}
             title="Download file"
             aria-label={`Download ${material.title}`}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#EAF4FA] px-2.5 text-xs font-semibold text-[#195477] hover:bg-[#D6E9F5] transition disabled:opacity-50"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#EAF4FA] px-2.5 text-xs font-semibold text-[#195477] hover:bg-[#D6E9F5] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#195477]/30 transition disabled:opacity-50"
           >
             {isDownloading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-[#195477]" />

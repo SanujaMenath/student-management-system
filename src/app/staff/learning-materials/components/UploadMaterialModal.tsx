@@ -102,16 +102,51 @@ export function UploadMaterialModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
+
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !isSubmitting) {
         onClose();
+        return;
+      }
+
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]'
+        );
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      previousFocusRef.current?.focus();
+    };
   }, [isOpen, isSubmitting, onClose]);
 
   if (!isOpen) return null;
@@ -187,6 +222,7 @@ export function UploadMaterialModal({
 
     if (!title.trim()) {
       setErrorMessage('Please provide a title for the learning material.');
+      titleInputRef.current?.focus();
       return;
     }
     if (!subject.trim()) {
@@ -253,7 +289,10 @@ export function UploadMaterialModal({
       onClick={handleBackdropClick}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs overflow-y-auto"
     >
-      <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 sm:p-7 shadow-2xl transition-all">
+      <div
+        ref={modalRef}
+        className="relative w-full max-w-lg rounded-3xl bg-white p-6 sm:p-7 shadow-2xl transition-all"
+      >
         {/* Header */}
         <div className="flex items-start justify-between border-b border-slate-100 pb-4">
           <div>
@@ -265,11 +304,12 @@ export function UploadMaterialModal({
             </p>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             disabled={isSubmitting}
             onClick={onClose}
             aria-label="Close upload modal"
-            className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40 transition"
+            className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400 disabled:opacity-40 transition"
           >
             <X className="h-5 w-5" />
           </button>
@@ -308,7 +348,16 @@ export function UploadMaterialModal({
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onClick={() => fileInputRef.current?.click()}
-                className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition ${
+                tabIndex={0}
+                role="button"
+                aria-label="Upload resource file: click to browse or drag and drop"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
+                className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#187055] ${
                   isDragging
                     ? 'border-[#187055] bg-[#E7F3EE]/50'
                     : 'border-slate-300 bg-slate-50/50 hover:border-[#187055] hover:bg-slate-50'
@@ -345,7 +394,7 @@ export function UploadMaterialModal({
                     type="button"
                     disabled={isSubmitting}
                     onClick={() => fileInputRef.current?.click()}
-                    className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-white disabled:opacity-40"
+                    className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400 disabled:opacity-40"
                   >
                     Replace
                   </button>
@@ -357,7 +406,7 @@ export function UploadMaterialModal({
                       if (fileInputRef.current) fileInputRef.current.value = '';
                     }}
                     aria-label="Remove selected file"
-                    className="rounded-lg p-1 text-slate-400 hover:text-red-600 disabled:opacity-40"
+                    className="rounded-lg p-1 text-slate-400 hover:text-red-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-40"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -372,13 +421,14 @@ export function UploadMaterialModal({
               Material Title <span className="text-red-500">*</span>
             </label>
             <input
+              ref={titleInputRef}
               id="material-title"
               type="text"
               value={title}
               disabled={isSubmitting}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Letter Tracing Practice Worksheet"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-hidden focus:border-[#187055] focus:ring-2 focus:ring-[#187055]/15 disabled:bg-slate-100"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-hidden focus:border-[#187055] focus-visible:ring-2 focus-visible:ring-[#187055]/20 disabled:bg-slate-100"
             />
           </div>
 
@@ -393,7 +443,7 @@ export function UploadMaterialModal({
                 value={subject}
                 disabled={isSubmitting}
                 onChange={(e) => setSubject(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 outline-hidden focus:border-[#187055] focus:ring-2 focus:ring-[#187055]/15 disabled:bg-slate-100"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 outline-hidden focus:border-[#187055] focus-visible:ring-2 focus-visible:ring-[#187055]/20 disabled:bg-slate-100"
               >
                 {CURRICULUM_SUBJECTS.map((sub) => (
                   <option key={sub} value={sub}>
@@ -412,7 +462,7 @@ export function UploadMaterialModal({
                 value={targetClassId}
                 disabled={isSubmitting || assignedClasses.length <= 1}
                 onChange={(e) => setTargetClassId(Number(e.target.value))}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 outline-hidden focus:border-[#187055] focus:ring-2 focus:ring-[#187055]/15 disabled:bg-slate-100"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 outline-hidden focus:border-[#187055] focus-visible:ring-2 focus-visible:ring-[#187055]/20 disabled:bg-slate-100"
               >
                 {assignedClasses.map((cls) => (
                   <option key={cls.id} value={cls.id}>
@@ -435,7 +485,7 @@ export function UploadMaterialModal({
               disabled={isSubmitting}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Add brief instructions, homework notes, or activities for parents and students..."
-              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 outline-hidden focus:border-[#187055] focus:ring-2 focus:ring-[#187055]/15 disabled:bg-slate-100 resize-none"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 outline-hidden focus:border-[#187055] focus-visible:ring-2 focus-visible:ring-[#187055]/20 disabled:bg-slate-100 resize-none"
             />
           </div>
 
@@ -445,14 +495,14 @@ export function UploadMaterialModal({
               type="button"
               disabled={isSubmitting}
               onClick={onClose}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition"
+              className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400 disabled:opacity-40 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#187055] px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#145C46] disabled:opacity-50 transition"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#187055] px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#145C46] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#187055]/40 disabled:opacity-50 transition"
             >
               {isSubmitting ? (
                 <>

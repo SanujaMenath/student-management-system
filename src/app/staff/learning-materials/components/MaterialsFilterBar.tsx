@@ -49,14 +49,14 @@ export function MaterialsFilterBar({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search materials by title or description..."
-            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-10 pr-9 text-xs text-slate-800 placeholder-slate-400 outline-hidden transition focus:border-[#187055] focus:bg-white focus:ring-2 focus:ring-[#187055]/15"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-10 pr-9 text-xs text-slate-800 placeholder-slate-400 outline-hidden transition focus:border-[#187055] focus:bg-white focus-visible:ring-2 focus-visible:ring-[#187055]/20"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => onSearchChange('')}
-              aria-label="Clear search"
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+              aria-label="Clear search query"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 focus-visible:outline-hidden focus-visible:text-slate-700"
             >
               <X className="h-4 w-4" />
             </button>
@@ -76,7 +76,7 @@ export function MaterialsFilterBar({
             value={selectedSubject}
             onChange={(e) => onSubjectChange(e.target.value)}
             aria-label="Filter by curriculum subject"
-            className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-9 pr-8 text-xs font-medium text-slate-700 outline-hidden transition focus:border-[#187055] focus:bg-white focus:ring-2 focus:ring-[#187055]/15"
+            className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-9 pr-8 text-xs font-medium text-slate-700 outline-hidden transition focus:border-[#187055] focus:bg-white focus-visible:ring-2 focus-visible:ring-[#187055]/20"
           >
             <option value="All">All Subjects</option>
             {availableSubjects.map((sub) => (
@@ -89,7 +89,7 @@ export function MaterialsFilterBar({
       </div>
 
       {/* File Category Filter Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto border-t border-slate-100 pt-3 pb-0.5 text-xs scrollbar-none">
+      <div className="flex items-center gap-1.5 overflow-x-auto border-t border-slate-100 pt-3 pb-0.5 text-xs scrollbar-thin">
         {FILE_TYPE_OPTIONS.map((type) => {
           const isSelected = selectedFileType === type;
           const count = fileTypeCounts[type] || 0;
@@ -99,7 +99,8 @@ export function MaterialsFilterBar({
               key={type}
               type="button"
               onClick={() => onFileTypeChange(type)}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium transition ${
+              aria-pressed={isSelected}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#187055]/30 ${
                 isSelected
                   ? 'bg-[#187055] text-white shadow-xs'
                   : 'bg-slate-100/70 text-slate-600 hover:bg-slate-100'
@@ -122,4 +123,3 @@ export function MaterialsFilterBar({
     </div>
   );
 }
-
