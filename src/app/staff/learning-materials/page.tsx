@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
+import { Plus } from 'lucide-react';
 import {
   getStaffAssignedClasses,
   getStaffLearningMaterials,
@@ -16,6 +17,7 @@ import { MaterialCard } from './components/MaterialCard';
 import { EmptyState } from './components/EmptyState';
 import { MaterialsLoadingSkeleton } from './components/MaterialsLoadingSkeleton';
 import { StatusAlertBanner } from './components/StatusAlertBanner';
+import { UploadMaterialModal } from './components/UploadMaterialModal';
 
 const STANDARD_CURRICULUM_SUBJECTS = [
   'English',
@@ -36,6 +38,7 @@ export default function StaffLearningMaterialsPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<'unlinked_staff' | 'no_classes' | 'error' | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,6 +55,13 @@ export default function StaffLearningMaterialsPage() {
     }
     setIsClassLoading(false);
   }, []);
+
+  const handleUploadSuccess = async (targetClassId: number) => {
+    if (targetClassId !== activeClassId) {
+      setActiveClassId(targetClassId);
+    }
+    await loadMaterialsForClass(targetClassId);
+  };
 
   useEffect(() => {
     let ignore = false;
@@ -219,6 +229,17 @@ export default function StaffLearningMaterialsPage() {
             Upload and manage educational handouts, practice worksheets, and media for your assigned class.
           </p>
         </div>
+
+        {assignedClasses.length > 0 && !errorType && (
+          <button
+            type="button"
+            onClick={() => setIsUploadModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#187055] px-4 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-[#145C46] transition"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Upload Material</span>
+          </button>
+        )}
       </div>
 
       {/* Main Content Area */}
@@ -290,6 +311,17 @@ export default function StaffLearningMaterialsPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Upload Material Modal */}
+      {isUploadModalOpen && (
+        <UploadMaterialModal
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          assignedClasses={assignedClasses}
+          activeClassId={activeClassId}
+          onUploadSuccess={handleUploadSuccess}
+        />
       )}
     </div>
   );
