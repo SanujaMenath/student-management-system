@@ -1,10 +1,18 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import {
+  uploadLearningMaterialFile,
+  deleteLearningMaterialFile,
+  getLearningMaterialSignedUrl,
+} from '@/lib/learning-materials-storage';
 import type {
   LearningMaterialItem,
   LearningMaterialsFilter,
   LearningMaterialFileType,
+  LearningMaterialActionResult,
+  SignedUrlResult,
 } from '@/types/learning-materials';
 
 /**
@@ -39,6 +47,52 @@ export interface GetLearningMaterialsResponse {
   success: boolean;
   materials: LearningMaterialItem[];
   error?: string | null;
+}
+
+/**
+ * Resolves appropriate LearningMaterialFileType from filename and MIME type
+ */
+function resolveFileType(fileName: string, mimeType?: string): LearningMaterialFileType {
+  const mime = (mimeType || '').toLowerCase();
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+
+  if (mime.includes('pdf') || ext === 'pdf') {
+    return 'PDF';
+  }
+  if (
+    mime.startsWith('image/') ||
+    ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)
+  ) {
+    return 'Image';
+  }
+  if (
+    mime.startsWith('video/') ||
+    ['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext)
+  ) {
+    return 'Video';
+  }
+  if (
+    mime.includes('word') ||
+    mime.includes('document') ||
+    mime.includes('text') ||
+    mime.includes('presentation') ||
+    mime.includes('sheet') ||
+    [
+      'doc',
+      'docx',
+      'txt',
+      'rtf',
+      'odt',
+      'ppt',
+      'pptx',
+      'xls',
+      'xlsx',
+      'csv',
+    ].includes(ext)
+  ) {
+    return 'Document';
+  }
+  return 'Other';
 }
 
 /**
@@ -139,9 +193,6 @@ async function getAuthenticatedStaffContext() {
   };
 }
 
-/**
- * Retrieves the classes assigned to the currently authenticated staff member.
- */
 export async function getStaffAssignedClasses(): Promise<GetAssignedClassesResponse> {
   const context = await getAuthenticatedStaffContext();
 
@@ -197,14 +248,6 @@ interface RawMaterialRow {
   } | null;
 }
 
-/**
- * Retrieves learning materials belonging to classes assigned to the currently authenticated staff member.
- * 
- * - Enforces authentication, staff role verification, and active status.
- * - Restricts results strictly to the teacher's assigned classes.
- * - Orders results by newest upload first (created_at DESC).
- * - Joins class name and uploader display name.
- */
 export async function getStaffLearningMaterials(
   filters?: LearningMaterialsFilter
 ): Promise<GetLearningMaterialsResponse> {
@@ -322,5 +365,239 @@ export async function getStaffLearningMaterials(
     success: true,
     materials: mappedMaterials,
     error: null,
+  };
+}
+
+export async function uploadLearningMaterial(
+  formData: FormData
+): Promise<LearningMaterialActionResult> {
+  const context = await getAuthenticatedStaffContext();
+
+  if ('error' in context) {
+    return {
+      success: false,
+      error: context.error,
+    };
+  }
+
+  const title = (formData.get('title') as string)?.trim();
+  const description = (formData.get('description') as string)?.trim() || null;
+  const subject = (formData.get('subject') as string)?.trim();
+  const rawClassId = formData.get('classId') as string;
+  const file = formData.get('file') as File | null;
+
+  if (!title || !subject || !rawClassId || !file) {
+    return {
+      success: false,
+      error: 'Please provide all mandatory fields (title, subject, class, and file).',
+    };
+  }
+
+  const classId = parseInt(rawClassId, 10);
+  if (isNaN(classId)) {
+    return {
+      success: false,
+      error: 'Invalid class ID provided.',
+    };
+  }
+
+  // Verify that the teacher is assigned to this class
+  const assignedClassIds = context.classes.map((c) => Number(c.id));
+  if (!assignedClassIds.includes(classId)) {
+    return {
+      success: false,
+      error: 'Access denied. You are not assigned to the selected class.',
+    };
+  }
+
+  // Validate file size (max 25 MB)
+  const MAX_FILE_SIZE = 25 * 1024 * 1024;
+  if (file.size <= 0) {
+    return {
+      success: false,
+      error: 'The uploaded file is empty.',
+    };
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    return {
+      success: false,
+      error: 'File size exceeds the maximum limit of 25 MB.',
+    };
+  }
+
+  const fileType = resolveFileType(file.name, file.type);
+
+  const storageResult = await uploadLearningMaterialFile({
+    supabase: context.supabase,
+    classId,
+    uploaderProfileId: context.user.id,
+    file,
+    fileName: file.name,
+    contentType: file.type || undefined,
+  });
+
+  if (!storageResult.success || !storageResult.storagePath) {
+    return {
+      success: false,
+      error: storageResult.error || 'Failed to upload file to storage.',
+    };
+  }
+
+  const { data: inserted, error: insertError } = await context.supabase
+    .from('learning_materials')
+    .insert({
+      title,
+      description,
+      subject,
+      class_id: classId,
+      storage_path: storageResult.storagePath,
+      file_name: file.name,
+      file_size: file.size,
+      file_type: fileType,
+      uploaded_by: context.user.id,
+    })
+    .select()
+    .single();
+
+  if (insertError) {
+    // Atomic rollback: purge uploaded storage file if metadata creation fails
+    await deleteLearningMaterialFile(context.supabase, storageResult.storagePath);
+    return {
+      success: false,
+      error: `Failed to save learning material metadata: ${insertError.message}`,
+    };
+  }
+
+  revalidatePath('/staff/learning-materials');
+  revalidatePath('/parent/learning-management');
+
+  return {
+    success: true,
+    material: inserted,
+  };
+}
+
+export async function deleteLearningMaterial(
+  materialId: string
+): Promise<{ success: boolean; error?: string }> {
+  const context = await getAuthenticatedStaffContext();
+
+  if ('error' in context) {
+    return {
+      success: false,
+      error: context.error,
+    };
+  }
+
+  if (!materialId || materialId.trim() === '') {
+    return {
+      success: false,
+      error: 'Material ID is required for deletion.',
+    };
+  }
+
+  const { data: material, error: fetchError } = await context.supabase
+    .from('learning_materials')
+    .select('id, class_id, storage_path, uploaded_by')
+    .eq('id', materialId)
+    .single();
+
+  if (fetchError || !material) {
+    return {
+      success: false,
+      error: 'Learning material not found.',
+    };
+  }
+
+  if (material.uploaded_by !== context.user.id) {
+    return {
+      success: false,
+      error: 'Access denied. You can only delete materials that you uploaded.',
+    };
+  }
+
+  const assignedClassIds = context.classes.map((c) => Number(c.id));
+  if (!assignedClassIds.includes(Number(material.class_id))) {
+    return {
+      success: false,
+      error: 'Access denied. You are no longer assigned to this class.',
+    };
+  }
+
+  // Authoritative database record is deleted first to preserve metadata consistency
+  const { error: dbDeleteError } = await context.supabase
+    .from('learning_materials')
+    .delete()
+    .eq('id', materialId);
+
+  if (dbDeleteError) {
+    return {
+      success: false,
+      error: `Failed to delete material record: ${dbDeleteError.message}`,
+    };
+  }
+
+  const storageResult = await deleteLearningMaterialFile(
+    context.supabase,
+    material.storage_path
+  );
+
+  if (!storageResult.success) {
+    console.error(
+      `Warning: Database row deleted, but storage object deletion returned: ${storageResult.error}`
+    );
+  }
+
+  revalidatePath('/staff/learning-materials');
+  revalidatePath('/parent/learning-management');
+
+  return {
+    success: true,
+  };
+}
+
+export async function getMaterialDownloadUrl(
+  materialId: string
+): Promise<SignedUrlResult> {
+  const context = await getAuthenticatedStaffContext();
+
+  if ('error' in context) {
+    return {
+      signedUrl: null,
+      error: context.error,
+    };
+  }
+
+  const { data: material, error: fetchError } = await context.supabase
+    .from('learning_materials')
+    .select('id, class_id, storage_path')
+    .eq('id', materialId)
+    .single();
+
+  if (fetchError || !material) {
+    return {
+      signedUrl: null,
+      error: 'Learning material not found.',
+    };
+  }
+
+  // Verify class assignment
+  const assignedClassIds = context.classes.map((c) => Number(c.id));
+  if (!assignedClassIds.includes(Number(material.class_id))) {
+    return {
+      signedUrl: null,
+      error: 'Access denied. You are not assigned to this class.',
+    };
+  }
+
+  const result = await getLearningMaterialSignedUrl(
+    context.supabase,
+    material.storage_path,
+    3600
+  );
+
+  return {
+    signedUrl: result.signedUrl,
+    error: result.error || undefined,
   };
 }
