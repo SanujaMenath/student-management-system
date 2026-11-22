@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Search,
   Bell,
+  Briefcase,
 } from 'lucide-react';
 import { logout } from '@/actions/auth';
 
@@ -27,6 +28,7 @@ const navItems = [
   { label: 'Staff', href: '/admin/staff', icon: Users },
   { label: 'Classes', href: '/admin/classes', icon: BookOpen },
   { label: 'Admissions', href: '/admin/admissions', icon: ClipboardList },
+  { label: 'Careers', href: '/admin/careers', icon: Briefcase },
   { label: 'Fees', href: '/admin/fees', icon: Receipt },
   { label: 'Communication', href: '/admin/communication', icon: MessageSquare },
   { label: 'Reports', href: '/admin/reports', icon: FileBarChart },
