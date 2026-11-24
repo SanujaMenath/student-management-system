@@ -8,6 +8,11 @@ interface ChatMessage {
   content: string;
 }
 
+interface ChatApiResponse {
+  reply?: string;
+  error?: string;
+}
+
 const suggestedPrompts = [
   'What are the admission requirements?',
   'What programs do you offer?',
@@ -49,12 +54,22 @@ export default function ChatWidget() {
         body: JSON.stringify({ message: textToSend }),
       });
 
-      const data = await response.json();
+      let data: ChatApiResponse | null = null;
+      try {
+        data = (await response.json()) as ChatApiResponse;
+      } catch {
+        data = null;
+      }
 
-      if (response.ok && data.reply) {
+      const reply =
+        typeof data?.reply === 'string' && data.reply.trim()
+          ? data.reply
+          : null;
+
+      if (reply) {
         setMessages((prev) => [
           ...prev,
-          { role: 'assistant', content: data.reply },
+          { role: 'assistant', content: reply },
         ]);
       } else {
         setMessages((prev) => [
@@ -127,7 +142,7 @@ export default function ChatWidget() {
                 }`}
               >
                 <div
-                  className={`max-w-[85%] px-4 py-3 rounded-2xl text-xs leading-relaxed ${
+                  className={`max-w-[85%] px-4 py-3 rounded-2xl text-xs leading-relaxed whitespace-pre-line ${
                     m.role === 'user'
                       ? 'bg-[#0C4A35] text-white rounded-br-none shadow-sm'
                       : 'bg-white text-slate-700 border border-slate-200/80 rounded-bl-none shadow-[0_2px_8px_-4px_rgba(0,0,0,0.04)]'
