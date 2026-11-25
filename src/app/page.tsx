@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import Image from 'next/image';
+import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   User,
   ShieldCheck,
   HeartHandshake,
   Star,
-} from 'lucide-react';
-import ChatWidget from '@/components/chat/ChatWidget';
-import PublicNavbar from '@/components/shared/PublicNavbar';
-import Footer from '@/components/shared/Footer';
+} from "lucide-react";
+import ChatWidget from "@/components/chat/ChatWidget";
+import PublicNavbar from "@/components/shared/PublicNavbar";
+import Footer from "@/components/shared/Footer";
 
 export default function HomePage() {
   return (
@@ -95,6 +95,7 @@ export default function HomePage() {
               src="https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&w=900&q=80"
               alt="Child engaged in creative learning activity at Handahamy"
               fill
+              sizes="(max-width: 1024px) 100vw, 420px"
               className="object-cover"
               priority
             />
