@@ -59,7 +59,7 @@ export function StatusAlertBanner({
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
           <div>
             <h4 className="text-xs font-bold text-red-900">Unable to load data</h4>
-            <p className="mt-0.5 text-xs text-red-700">{message || 'An unexpected error occurred.'}</p>
+            <p className="mt-0.5 text-xs text-red-700 break-words leading-relaxed">{message || 'An unexpected error occurred.'}</p>
           </div>
         </div>
         {onRetry && (

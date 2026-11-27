@@ -49,12 +49,30 @@ export interface GetLearningMaterialsResponse {
   error?: string | null;
 }
 
+function extractValidExtension(fileName: string): string | null {
+  if (!fileName || typeof fileName !== 'string') return null;
+  const trimmed = fileName.trim();
+  const lastDot = trimmed.lastIndexOf('.');
+  if (lastDot <= 0 || lastDot === trimmed.length - 1) {
+    return null;
+  }
+  const stem = trimmed.slice(0, lastDot).trim();
+  if (!stem || stem.replace(/\./g, '') === '') {
+    return null;
+  }
+  const ext = trimmed.slice(lastDot + 1).toLowerCase();
+  if (!/^[a-z0-9]+$/.test(ext)) {
+    return null;
+  }
+  return ext;
+}
+
 /**
  * Resolves appropriate LearningMaterialFileType from filename and MIME type
  */
 function resolveFileType(fileName: string, mimeType?: string): LearningMaterialFileType {
   const mime = (mimeType || '').toLowerCase();
-  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  const ext = extractValidExtension(fileName) || '';
 
   if (mime.includes('pdf') || ext === 'pdf') {
     return 'PDF';
@@ -93,6 +111,123 @@ function resolveFileType(fileName: string, mimeType?: string): LearningMaterialF
     return 'Document';
   }
   return 'Other';
+}
+
+const SUPPORTED_EXTENSIONS = [
+  'pdf',
+  'png',
+  'jpg',
+  'jpeg',
+  'gif',
+  'webp',
+  'svg',
+  'mp4',
+  'webm',
+  'mov',
+  'avi',
+  'mkv',
+  'doc',
+  'docx',
+  'txt',
+  'rtf',
+  'odt',
+  'ppt',
+  'pptx',
+  'xls',
+  'xlsx',
+  'csv',
+] as const;
+
+const CANONICAL_MIME_BY_EXT: Record<string, string> = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  csv: 'text/csv',
+  txt: 'text/plain',
+  rtf: 'application/rtf',
+  odt: 'application/vnd.oasis.opendocument.text',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  avi: 'video/x-msvideo',
+  mkv: 'video/x-matroska',
+};
+
+const COMPATIBLE_MIMES_BY_EXT: Record<string, string[]> = {
+  pdf: ['application/pdf', 'application/x-pdf'],
+  doc: ['application/msword'],
+  docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ppt: ['application/vnd.ms-powerpoint'],
+  pptx: ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+  xls: ['application/vnd.ms-excel', 'application/msexcel'],
+  xlsx: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  csv: [
+    'text/csv',
+    'application/csv',
+    'text/x-csv',
+    'application/vnd.ms-excel',
+    'text/plain',
+  ],
+  txt: ['text/plain'],
+  rtf: ['application/rtf', 'text/rtf', 'text/richtext'],
+  odt: ['application/vnd.oasis.opendocument.text'],
+  jpg: ['image/jpeg', 'image/pjpeg'],
+  jpeg: ['image/jpeg', 'image/pjpeg'],
+  png: ['image/png', 'image/x-png'],
+  gif: ['image/gif'],
+  webp: ['image/webp'],
+  svg: ['image/svg+xml'],
+  mp4: ['video/mp4'],
+  webm: ['video/webm'],
+  mov: ['video/quicktime'],
+  avi: ['video/x-msvideo', 'video/avi', 'video/msvideo'],
+  mkv: ['video/x-matroska'],
+};
+
+function resolveContentType(
+  fileName: string,
+  clientMimeType?: string
+): { contentType: string; error?: never } | { contentType?: never; error: string } {
+  const ext = extractValidExtension(fileName);
+  if (!ext || !(ext in CANONICAL_MIME_BY_EXT)) {
+    return {
+      error: `File format ${ext ? `".${ext}"` : 'without valid extension'} is not supported.`,
+    };
+  }
+
+  const canonical = CANONICAL_MIME_BY_EXT[ext];
+  const compatible = COMPATIBLE_MIMES_BY_EXT[ext] || [canonical];
+
+  // If client MIME is empty or generic binary stream, safely fall back to the canonical type for this verified extension
+  if (
+    !clientMimeType ||
+    clientMimeType.trim() === '' ||
+    clientMimeType.toLowerCase().trim() === 'application/octet-stream'
+  ) {
+    return { contentType: canonical };
+  }
+
+  const normalizedClient = clientMimeType.trim().toLowerCase();
+
+  // If the browser-supplied MIME type is compatible with this extension, safely normalize to the canonical type
+  if (compatible.includes(normalizedClient)) {
+    return { contentType: canonical };
+  }
+
+  // A non-empty, incompatible MIME type must be rejected with a clear validation error
+  return {
+    error: `Incompatible media type "${clientMimeType}" for file extension ".${ext}". Please upload a valid ${ext.toUpperCase()} file.`,
+  };
 }
 
 /**
@@ -149,6 +284,13 @@ async function getAuthenticatedStaffContext() {
     .maybeSingle();
 
   if (staffError) {
+    if (staffError.code === '42703' || staffError.message.includes('profile_id')) {
+      return {
+        error:
+          'Database schema configuration error: column "staff.profile_id" is missing. Please ensure database migration 010_staff_learning_management.sql has been applied to Supabase.',
+        status: 500,
+      };
+    }
     return {
       error: `Failed to query staff record: ${staffError.message}`,
       status: 500,
@@ -335,6 +477,14 @@ export async function getStaffLearningMaterials(
   const { data, error } = await query;
 
   if (error) {
+    if (error.code === '42P01' || error.message.includes('does not exist')) {
+      return {
+        success: false,
+        materials: [],
+        error:
+          'Database schema configuration error: table "learning_materials" does not exist. Please apply migration 010_staff_learning_management.sql to your Supabase project.',
+      };
+    }
     return {
       success: false,
       materials: [],
@@ -425,7 +575,23 @@ export async function uploadLearningMaterial(
     };
   }
 
+  const ext = extractValidExtension(file.name);
+  if (!ext || !SUPPORTED_EXTENSIONS.includes(ext as (typeof SUPPORTED_EXTENSIONS)[number])) {
+    return {
+      success: false,
+      error: `File format ${ext ? `".${ext}"` : 'without valid extension'} is not supported. Supported formats include PDF, Word, PowerPoint, Excel, text documents, images (PNG, JPG, WebP), and videos (MP4, WebM).`,
+    };
+  }
+
   const fileType = resolveFileType(file.name, file.type);
+  const contentTypeResult = resolveContentType(file.name, file.type);
+  if (contentTypeResult.error || !contentTypeResult.contentType) {
+    return {
+      success: false,
+      error: contentTypeResult.error || 'Unable to determine a valid media type for the uploaded file.',
+    };
+  }
+  const contentType = contentTypeResult.contentType;
 
   const storageResult = await uploadLearningMaterialFile({
     supabase: context.supabase,
@@ -433,13 +599,27 @@ export async function uploadLearningMaterial(
     uploaderProfileId: context.user.id,
     file,
     fileName: file.name,
-    contentType: file.type || undefined,
+    contentType,
   });
 
   if (!storageResult.success || !storageResult.storagePath) {
+    const rawError = storageResult.error || 'Failed to upload file to storage.';
+    let diagnosticError = rawError;
+    if (rawError.toLowerCase().includes('bucket not found')) {
+      diagnosticError =
+        'Storage configuration error: private bucket "learning-materials" does not exist. Please apply migration 010_staff_learning_management.sql or create the bucket in Supabase.';
+    } else if (
+      rawError.toLowerCase().includes('row-level security') ||
+      rawError.toLowerCase().includes('policy')
+    ) {
+      diagnosticError =
+        'Storage authorization error: upload rejected by row-level security policy. Please verify migration 010 storage policies are applied and your staff profile is assigned to this class.';
+    } else if (rawError.toLowerCase().includes('mime')) {
+      diagnosticError = `File format rejected by storage: ${rawError}. Please ensure migration 010 bucket configuration includes this MIME type.`;
+    }
     return {
       success: false,
-      error: storageResult.error || 'Failed to upload file to storage.',
+      error: diagnosticError,
     };
   }
 
@@ -462,6 +642,22 @@ export async function uploadLearningMaterial(
   if (insertError) {
     // Atomic rollback: purge uploaded storage file if metadata creation fails
     await deleteLearningMaterialFile(context.supabase, storageResult.storagePath);
+    if (
+      insertError.code === '42P01' ||
+      insertError.message.includes('does not exist')
+    ) {
+      return {
+        success: false,
+        error:
+          'Database schema configuration error: table "learning_materials" does not exist. Please apply migration 010_staff_learning_management.sql to your Supabase project.',
+      };
+    }
+    if (insertError.code === '23514') {
+      return {
+        success: false,
+        error: `Storage path metadata constraint violation: ${insertError.message}`,
+      };
+    }
     return {
       success: false,
       error: `Failed to save learning material metadata: ${insertError.message}`,
@@ -503,6 +699,16 @@ export async function deleteLearningMaterial(
     .single();
 
   if (fetchError || !material) {
+    if (
+      fetchError &&
+      (fetchError.code === '42P01' || fetchError.message.includes('does not exist'))
+    ) {
+      return {
+        success: false,
+        error:
+          'Database schema configuration error: table "learning_materials" does not exist. Please apply migration 010_staff_learning_management.sql to your Supabase project.',
+      };
+    }
     return {
       success: false,
       error: 'Learning material not found.',
@@ -576,6 +782,16 @@ export async function getMaterialDownloadUrl(
     .single();
 
   if (fetchError || !material) {
+    if (
+      fetchError &&
+      (fetchError.code === '42P01' || fetchError.message.includes('does not exist'))
+    ) {
+      return {
+        signedUrl: null,
+        error:
+          'Database schema configuration error: table "learning_materials" does not exist. Please apply migration 010_staff_learning_management.sql to your Supabase project.',
+      };
+    }
     return {
       signedUrl: null,
       error: 'Learning material not found.',
