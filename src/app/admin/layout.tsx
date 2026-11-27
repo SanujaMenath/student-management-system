@@ -40,75 +40,77 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-[#F4F6F5] flex">
-      {/* Deep Forest Green Sidebar */}
-      <aside className="w-64 bg-[#072B20] text-white flex flex-col justify-between shrink-0 p-5 select-none hidden lg:flex">
-        <div className="space-y-6">
+    <div className="flex min-h-screen bg-[#F5F8F7] font-sans text-[#374151]">
+      {/* Deep Forest Green Sticky Sidebar */}
+      <aside className="sticky top-0 h-screen w-72 shrink-0 bg-[#082F27] p-5 text-white select-none hidden lg:block">
+        <div className="flex flex-col justify-between h-full">
           {/* Logo / Header */}
-          <div className="pt-2 px-1">
-            <h1 className="text-lg font-extrabold tracking-wider text-white uppercase">
+          <div className="shrink-0 pb-7 border-b border-white/15 pt-1 px-1">
+            <h1 className="font-sans text-[20px] font-bold text-white tracking-wide uppercase">
               HANDAHAMY
             </h1>
-            <p className="text-[10px] tracking-widest text-emerald-300/80 uppercase font-medium">
+            <p className="mt-1 font-sans text-[11px] font-semibold text-white tracking-widest uppercase">
               EDUCATIONAL INSTITUTE
             </p>
           </div>
 
           {/* Section Tag */}
-          <div className="px-1 text-[11px] font-semibold text-emerald-400/60 uppercase tracking-wider">
+          <div className="shrink-0 mt-7 mb-3 px-4 text-[12px] font-normal tracking-widest text-[rgba(167,243,208,0.6)] uppercase">
             ADMIN PORTAL
           </div>
 
-          {/* Navigation Links */}
-          <nav className="space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                    isActive
-                      ? 'bg-[#124A3A] text-white shadow-sm'
-                      : 'text-emerald-100/70 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className="w-4 h-4 opacity-80" />
-                    <span>{item.label}</span>
-                  </div>
-                  {isActive && <ChevronRight className="w-4 h-4 text-emerald-300" />}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
+          {/* Scrollable Middle Navigation Links */}
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <nav className="space-y-2 pb-2">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className={`flex items-center justify-between px-4 py-3.5 rounded-[12px] text-[14px] transition-colors ${
+                      isActive
+                        ? 'bg-[#187055] text-white font-semibold rounded-[12px]'
+                        : 'font-normal text-emerald-50/85 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <Icon className="w-5 h-5 shrink-0" />
+                      <span>{item.label}</span>
+                    </div>
+                    {isActive && <ChevronRight className="w-4 h-4 shrink-0 text-white" />}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
 
-        {/* Bottom Section: Logout & User Profile */}
-        <div className="space-y-3 pt-6">
-          <form action={logout}>
-            <button
-              type="submit"
-              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-emerald-900/60 hover:bg-emerald-900/30 text-emerald-100/80 text-xs font-semibold transition"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Logout</span>
-            </button>
-          </form>
+          {/* Bottom Section: Logout & User Profile */}
+          <div className="shrink-0 pt-4 border-t border-white/15 space-y-2.5">
+            <form action={logout}>
+              <button
+                type="submit"
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[12px] border border-white/15 hover:bg-white/10 text-emerald-50/85 hover:text-white text-[14px] font-semibold transition-colors"
+              >
+                <LogOut className="w-5 h-5 shrink-0" />
+                <span>Logout</span>
+              </button>
+            </form>
 
-          {/* User Profile Capsule */}
-          <div className="flex items-center justify-between p-2.5 rounded-2xl bg-[#0B3528] border border-emerald-900/50">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-[#E5A93C] text-slate-900 flex items-center justify-center font-bold text-xs">
-                NS
+            {/* User Profile Capsule */}
+            <div className="flex items-center justify-between p-3 rounded-[12px] bg-white/5 border border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-[#187055] text-white flex items-center justify-center font-semibold text-[12px]">
+                  NS
+                </div>
+                <div className="text-left">
+                  <div className="text-[14px] font-semibold text-white leading-tight">Nadeesha Silva</div>
+                  <div className="text-[12px] font-medium text-emerald-200/70">Administrator</div>
+                </div>
               </div>
-              <div className="text-left">
-                <div className="text-xs font-bold text-white leading-tight">Nadeesha Silva</div>
-                <div className="text-[10px] text-emerald-300/70">Administrator</div>
-              </div>
+              <ChevronDown className="w-4 h-4 text-emerald-200/60" />
             </div>
-            <ChevronDown className="w-4 h-4 text-emerald-300/60" />
           </div>
         </div>
       </aside>
@@ -116,37 +118,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main Panel */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="h-18 px-6 lg:px-10 py-4 flex items-center justify-between bg-transparent">
+        <header className="min-h-[96px] bg-white px-6 lg:px-10 border-b border-[#E5E7EB] flex items-center justify-between gap-4">
           {/* Search Box */}
-          <div className="relative w-full max-w-md">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="flex items-center gap-3 max-w-[512px] w-full bg-[#F5F8F7] rounded-[12px] px-4 py-3">
+            <Search className="w-5 h-5 shrink-0 text-[#9CA3AF]" />
             <input
               type="text"
               placeholder="Search students, events, payments..."
-              className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-white border border-slate-200/80 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#072B20]/20"
+              className="w-full text-[14px] text-[#374151] placeholder:text-[#9CA3AF] bg-transparent outline-none"
             />
           </div>
 
           {/* Actions & Avatar */}
-          <div className="flex items-center gap-4 ml-4">
+          <div className="flex items-center gap-5 shrink-0">
             <button
               type="button"
-              className="relative p-2 rounded-full hover:bg-slate-200/60 transition text-slate-600"
+              aria-label="Notifications"
+              className="relative bg-[#F5F8F7] p-3 rounded-[12px] hover:bg-[#E8F0EC] transition-colors"
             >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-4 h-4 bg-[#B91C1C] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+              <Bell className="w-5 h-5 text-[#082F27]" />
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#EF4444] text-white text-[12px] font-medium rounded-full flex items-center justify-center">
                 3
               </span>
             </button>
-            <div className="w-9 h-9 rounded-full bg-[#072B20] text-white flex items-center justify-center font-bold text-sm">
+            <div className="w-[44px] h-[44px] rounded-full bg-[#187055] text-white font-semibold flex items-center justify-center text-[14px]">
               N
             </div>
           </div>
         </header>
 
         {/* Scrollable Dashboard Body */}
-        <main className="p-6 lg:p-10 pt-2 flex-1 overflow-y-auto">
-          {children}
+        <main className="flex-1 bg-[#F5F8F7] py-10 px-6 lg:px-10">
+          <div className="max-w-[1280px] mx-auto w-full">
+            {children}
+          </div>
         </main>
       </div>
     </div>
