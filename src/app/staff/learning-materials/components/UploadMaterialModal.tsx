@@ -56,7 +56,27 @@ const SUPPORTED_EXTENSIONS = [
   'csv',
 ];
 
+const ACCEPT_ATTRIBUTE = SUPPORTED_EXTENSIONS.map((ext) => `.${ext}`).join(',');
+
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
+
+function extractValidExtension(fileName: string): string | null {
+  if (!fileName || typeof fileName !== 'string') return null;
+  const trimmed = fileName.trim();
+  const lastDot = trimmed.lastIndexOf('.');
+  if (lastDot <= 0 || lastDot === trimmed.length - 1) {
+    return null;
+  }
+  const stem = trimmed.slice(0, lastDot).trim();
+  if (!stem || stem.replace(/\./g, '') === '') {
+    return null;
+  }
+  const ext = trimmed.slice(lastDot + 1).toLowerCase();
+  if (!/^[a-z0-9]+$/.test(ext)) {
+    return null;
+  }
+  return ext;
+}
 
 function formatFileSize(bytes: number): string {
   if (!bytes || bytes <= 0) return '0 B';
@@ -66,7 +86,7 @@ function formatFileSize(bytes: number): string {
 }
 
 function getFileIcon(fileName: string) {
-  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  const ext = extractValidExtension(fileName) || '';
   if (ext === 'pdf') {
     return <FileText className="h-6 w-6 text-red-600" />;
   }
@@ -169,7 +189,7 @@ export function UploadMaterialModal({
     if (candidate.size > MAX_FILE_SIZE_BYTES) {
       return 'The file size exceeds the 25 MB limit.';
     }
-    const ext = candidate.name.split('.').pop()?.toLowerCase() || '';
+    const ext = extractValidExtension(candidate.name);
     if (!ext || !SUPPORTED_EXTENSIONS.includes(ext)) {
       return 'Unsupported file format. Please upload a PDF, Document, Image, or Video file.';
     }
@@ -319,7 +339,7 @@ export function UploadMaterialModal({
         {errorMessage && (
           <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
-            <span>{errorMessage}</span>
+            <span className="leading-relaxed break-words">{errorMessage}</span>
           </div>
         )}
 
@@ -333,6 +353,7 @@ export function UploadMaterialModal({
             <input
               ref={fileInputRef}
               type="file"
+              accept={ACCEPT_ATTRIBUTE}
               onChange={(e) => {
                 if (e.target.files && e.target.files[0]) {
                   handleFileSelected(e.target.files[0]);
